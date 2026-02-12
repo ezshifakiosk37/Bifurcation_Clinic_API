@@ -27,6 +27,7 @@ export const all_entries = pgTable("all_entries", {
     BloodOxygen: text("BloodOxygen"),
     Diastolic: text("Diastolic"),
     Systolic: text("Systolic"),
+    Temperature: text("Temperature"),
     Weight: text("Weight"),
     Height: text("Height"),
     createdAt: date("created_at").defaultNow().notNull(),

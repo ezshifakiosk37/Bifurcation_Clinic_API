@@ -73,7 +73,8 @@ router.post('/save-vitals', authenticate, async (req: any, res: any) => {
       PulseRate: v.PulseRate,
       BloodOxygen: v.Spo2,      // Note: mapping 'Spo2' from frontend to 'BloodOxygen' in DB
       Systolic: v.BP.value1,    // value1 -> Systolic
-      Diastolic: v.BP.value2,   // value2 -> Diastolic
+      Diastolic: v.BP.value2,
+      Temperature: v.Temperature,   // value2 -> Diastolic
       Weight: v.Weight,
       Height: v.Height,
       // Temperature isn't in your schema! Add it to schema or ignore it for now.
@@ -140,6 +141,48 @@ router.delete('/:id', authenticate, async (req: any, res) => {
     res.json({ success: true, message: "Entry deleted" });
   } catch (err) {
     res.status(500).json({ error: "Delete failed" });
+  }
+});
+
+// GET: Fetch Vitals History for a specific patient
+router.get('/history/:patientId', authenticate, async (req: any, res: any) => {
+  try {
+    const { patientId } = req.params;
+
+    if (!patientId) {
+      return res.status(400).json({ error: "Patient ID is required" });
+    }
+
+    // Logic: Fetch all vitals linked to this patient, newest first
+    const history = await db.select()
+      .from(vitals)
+      .where(eq(vitals.patient_id, patientId))
+      .orderBy(desc(vitals.createdAt));
+
+    // Logic: Map the DB fields back to the format your frontend expects (BP object)
+    const formattedHistory = history.map(row => ({
+      id: row.id,
+      createdAt: row.createdAt,
+      PulseRate: row.PulseRate,
+      Spo2: row.BloodOxygen,
+      Weight: row.Weight,
+      Height: row.Height,
+      Temperature: row.Temperature,
+      BP: {
+        value1: row.Systolic,
+        value2: row.Diastolic
+      }
+      // Temperature: row.Temperature (Only if you added it to your DB schema!)
+    }));
+
+    res.json({
+      success: true,
+      vitals: formattedHistory
+    });
+
+  } catch (err: any) {
+    console.error("Fetch Vitals Error:", err);
+    res.status(500).json({ error: "Internal Server Error", details: err.message });
   }
 });
 

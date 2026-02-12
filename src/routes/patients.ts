@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { db } from '../db';
-import { all_entries } from '../db/schema';
+import { all_entries, vitals } from '../db/schema';
 import { eq, desc, and } from 'drizzle-orm';
 import { authenticate } from '../middleware/auth';
 
@@ -55,6 +55,40 @@ router.get('/', authenticate, async (req, res) => {
 
   if (!entry) return res.status(404).json({ error: "Not found" });
   res.json({ entryId: entry.id, fields: entry });
+});
+
+// POST: Add Patient Vitals
+router.post('/save-vitals', authenticate, async (req: any, res: any) => {
+  try {
+    const { patientId, vitals: v } = req.body;
+
+    // Logic Check: Ensure we actually have a patient to attach vitals to
+    if (!patientId) {
+      return res.status(400).json({ error: "Missing patient ID" });
+    }
+
+    // Insert into the 'vitals' table you defined in your schema
+    const newVital = await db.insert(vitals).values({
+      patient_id: patientId,
+      PulseRate: v.PulseRate,
+      BloodOxygen: v.Spo2,      // Note: mapping 'Spo2' from frontend to 'BloodOxygen' in DB
+      Systolic: v.BP.value1,    // value1 -> Systolic
+      Diastolic: v.BP.value2,   // value2 -> Diastolic
+      Weight: v.Weight,
+      Height: v.Height,
+      // Temperature isn't in your schema! Add it to schema or ignore it for now.
+    }).returning();
+
+    res.status(201).json({ 
+      success: true, 
+      message: "Vitals recorded successfully", 
+      data: newVital[0] 
+    });
+
+  } catch (err: any) {
+    console.error("Vitals DB Error:", err);
+    res.status(500).json({ error: "Internal Server Error", details: err.message });
+  }
 });
 
 // POST: Save or Update

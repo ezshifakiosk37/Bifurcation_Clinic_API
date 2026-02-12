@@ -15,8 +15,6 @@ const app: Application = express();
 // Cloud platforms like Render/Railway inject the PORT variable automatically.
 const PORT = process.env.PORT || 5000;
 
-console.log("DEBUG: Current JWT_SECRET is:", process.env.JWT_SECRET);
-
 // 3. Production Middleware
 app.use(cors({
   origin: '*', // For Electron apps, '*' is often necessary, but you can restrict this later

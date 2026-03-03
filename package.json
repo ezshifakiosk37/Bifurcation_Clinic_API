@@ -3,10 +3,10 @@
   "version": "1.0.0",
   "main": "dist/index.js",
   "scripts": {
-    "build": "npx tsc && npm run db:push",
+    "build": "tsc",
     "db:push": "drizzle-kit push",
     "start": "node dist/index.js",
-    "dev": "npx tsx watch src/index.ts",
+    "dev": "tsx watch src/index.ts",
     "lint": "tsc --noEmit"
   },
   "dependencies": {

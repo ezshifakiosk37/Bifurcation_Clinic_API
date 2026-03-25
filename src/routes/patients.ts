@@ -36,9 +36,12 @@ router.post('/save', authenticate, async (req: any, res: any) => {
     let result;
     const isValidId = id && id !== "null" && id !== "" && id !== undefined;
 
-    // Strict mapping: Only these keys go to the Database
+    // 1. Always generate a fresh token for this specific visit/click
+    const freshToken = await getNextToken();
+
     const formattedData: any = {
       user_id: userId,
+      token: freshToken, // Assign the new token here
       phoneNumber: req.body.phoneNumber || "null",
       firstName: req.body.firstName || "null",
       lastName: req.body.lastName || "null",
@@ -60,31 +63,35 @@ router.post('/save', authenticate, async (req: any, res: any) => {
     };
 
     if (isValidId) {
-      // If updating, we keep the existing token or refresh it based on your clinic's preference.
-      // Usually, a re-checkin gets a NEW token for the new daily queue.
-      formattedData.token = await getNextToken(); 
-
+      // 2. Update existing patient & get the new token back from DB
       result = await db.update(all_entries)
         .set(formattedData)
         .where(and(eq(all_entries.id, id), eq(all_entries.user_id, userId)))
-        .returning();
+        .returning({ 
+          id: all_entries.id, 
+          token: all_entries.token 
+        });
     } else {
-      // New Patient Entry gets a new sequential token
-      formattedData.token = await getNextToken();
-
-      result = await db.insert(all_entries).values(formattedData).returning();
+      // 3. Insert new patient & get the new token back from DB
+      result = await db.insert(all_entries)
+        .values(formattedData)
+        .returning({ 
+          id: all_entries.id, 
+          token: all_entries.token 
+        });
     }
 
     if (!result || result.length === 0) {
-      return res.status(404).json({ error: "No record found" });
+      return res.status(404).json({ error: "Operation failed" });
     }
 
-    // Return entryId and the new token to the frontend
+    // 4. Return the explicit result to the frontend
     res.json({ 
         success: true, 
         entryId: result[0].id, 
         token: result[0].token 
     });
+
   } catch (err: any) {
     console.error("SAVE ERROR:", err);
     res.status(500).json({ error: "Database error", details: err.message });

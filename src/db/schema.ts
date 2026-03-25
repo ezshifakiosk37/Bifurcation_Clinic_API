@@ -31,7 +31,8 @@ export const all_entries = pgTable("all_entries", {
   surgicalHistory: text("surgicalHistory").default("null"),
   medicalHistory:text("medicalHistory").default("null"),
   medicineHistory:text("medicineHistory").default("null"),
-  allergies:text("allergies").default("null")
+  allergies:text("allergies").default("null"),
+  token: varchar("token", { length: 10 })
 });
 
   export const vitals = pgTable("vitals", {

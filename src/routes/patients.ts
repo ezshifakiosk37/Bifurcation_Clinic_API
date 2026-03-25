@@ -30,6 +30,7 @@ router.post('/save', authenticate, async (req: any, res: any) => {
       stAddress: req.body.stAddress || "null", 
       languages: req.body.languages || "null",
       surgicalHistory: req.body.surgicalHistory || "None",
+      //test
       // Handle Arrays: Drizzle text columns need Stringified JSON
       medicalHistory: Array.isArray(req.body.medicalHistory) ? JSON.stringify(req.body.medicalHistory) : "[]",
       medicineHistory: Array.isArray(req.body.medicineHistory) ? JSON.stringify(req.body.medicineHistory) : "[]",

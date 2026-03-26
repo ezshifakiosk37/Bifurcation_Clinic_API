@@ -8,24 +8,63 @@ const router = Router();
 
 // --- HELPER: GENERATE SEQUENTIAL DAILY TOKEN ---
 const getNextToken = async () => {
-  const today = new Date().toISOString().split('T')[0]; // Gets YYYY-MM-DD
+  // Use a localized date string to match your server/DB timezone
+  const today = new Date();
+  const dateStr = today.getFullYear() + '-' + 
+                 String(today.getMonth() + 1).padStart(2, '0') + '-' + 
+                 String(today.getDate()).padStart(2, '0');
 
-  // Find the highest token issued today
+  // Find the highest token issued TODAY
+  // We use >= start of day to ensure we only count today's entries
   const lastEntry = await db.select({ token: all_entries.token })
     .from(all_entries)
-    .where(sql`DATE(${all_entries.createdAt}) = ${today}`)
+    .where(sql`DATE(${all_entries.createdAt}) = ${dateStr}`)
     .orderBy(desc(all_entries.token))
     .limit(1);
 
-  if (lastEntry.length === 0) {
+  if (lastEntry.length === 0 || !lastEntry[0].token) {
     return "0001";
   }
 
-  // Increment the last token and pad with leading zeros
-  const lastTokenNumber = parseInt(lastEntry[0].token || "0");
+  const lastTokenNumber = parseInt(lastEntry[0].token);
   const nextTokenNumber = lastTokenNumber + 1;
   return nextTokenNumber.toString().padStart(4, '0');
 };
+
+// --- 3. VERIFY TOKEN (Used by Vitals Page) ---
+router.get('/verify-token/:token', authenticate, async (req, res) => {
+    const token = req.params.token as string; 
+    const today = new Date();
+    const dateStr = today.getFullYear() + '-' + 
+                   String(today.getMonth() + 1).padStart(2, '0') + '-' + 
+                   String(today.getDate()).padStart(2, '0');
+  
+    try {
+      const [patient] = await db.select()
+        .from(all_entries)
+        .where(and(
+            eq(all_entries.token, token),
+            // Ensure we are checking the token against TODAY'S date only
+            sql`DATE(${all_entries.createdAt}) = ${dateStr}`
+        ))
+        .orderBy(desc(all_entries.createdAt)) // Get the most recent one if duplicates exist
+        .limit(1);
+  
+      if (!patient) {
+        return res.status(404).json({ success: false, error: "Invalid or expired token for today" });
+      }
+  
+      res.json({ 
+        success: true, 
+        patientId: patient.id, 
+        phoneNumber: patient.phoneNumber,
+        firstName: patient.firstName // Useful for the Vitals person to confirm name
+      });
+    } catch (err) {
+      console.error("VERIFY ERROR:", err);
+      res.status(500).json({ error: "Verification failed" });
+    }
+});
 
 // --- 1. SAVE OR UPDATE PATIENT ---
 router.post('/save', authenticate, async (req: any, res: any) => {
@@ -41,6 +80,7 @@ router.post('/save', authenticate, async (req: any, res: any) => {
 
     const formattedData: any = {
       user_id: userId,
+
       token: freshToken, // Assign the new token here
       phoneNumber: req.body.phoneNumber || "null",
       firstName: req.body.firstName || "null",

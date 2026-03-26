@@ -8,63 +8,29 @@ const router = Router();
 
 // --- HELPER: GENERATE SEQUENTIAL DAILY TOKEN ---
 const getNextToken = async () => {
-  // Use a localized date string to match your server/DB timezone
-  const today = new Date();
-  const dateStr = today.getFullYear() + '-' + 
-                 String(today.getMonth() + 1).padStart(2, '0') + '-' + 
-                 String(today.getDate()).padStart(2, '0');
+  try {
+    // Use the database's own CURRENT_DATE to avoid timezone mismatches with JS
+    const lastEntry = await db.select({ token: all_entries.token })
+      .from(all_entries)
+      .where(sql`DATE(${all_entries.createdAt}) = CURRENT_DATE`)
+      .orderBy(desc(all_entries.token))
+      .limit(1);
 
-  // Find the highest token issued TODAY
-  // We use >= start of day to ensure we only count today's entries
-  const lastEntry = await db.select({ token: all_entries.token })
-    .from(all_entries)
-    .where(sql`DATE(${all_entries.createdAt}) = ${dateStr}`)
-    .orderBy(desc(all_entries.token))
-    .limit(1);
-
-  if (lastEntry.length === 0 || !lastEntry[0].token) {
-    return "0001";
-  }
-
-  const lastTokenNumber = parseInt(lastEntry[0].token);
-  const nextTokenNumber = lastTokenNumber + 1;
-  return nextTokenNumber.toString().padStart(4, '0');
-};
-
-// --- 3. VERIFY TOKEN (Used by Vitals Page) ---
-router.get('/verify-token/:token', authenticate, async (req, res) => {
-    const token = req.params.token as string; 
-    const today = new Date();
-    const dateStr = today.getFullYear() + '-' + 
-                   String(today.getMonth() + 1).padStart(2, '0') + '-' + 
-                   String(today.getDate()).padStart(2, '0');
-  
-    try {
-      const [patient] = await db.select()
-        .from(all_entries)
-        .where(and(
-            eq(all_entries.token, token),
-            // Ensure we are checking the token against TODAY'S date only
-            sql`DATE(${all_entries.createdAt}) = ${dateStr}`
-        ))
-        .orderBy(desc(all_entries.createdAt)) // Get the most recent one if duplicates exist
-        .limit(1);
-  
-      if (!patient) {
-        return res.status(404).json({ success: false, error: "Invalid or expired token for today" });
-      }
-  
-      res.json({ 
-        success: true, 
-        patientId: patient.id, 
-        phoneNumber: patient.phoneNumber,
-        firstName: patient.firstName // Useful for the Vitals person to confirm name
-      });
-    } catch (err) {
-      console.error("VERIFY ERROR:", err);
-      res.status(500).json({ error: "Verification failed" });
+    // If no entries today, start at 0001
+    if (lastEntry.length === 0 || !lastEntry[0].token) {
+      return "0001";
     }
-});
+
+    // Convert to number, increment, and pad back to 4 digits
+    const lastTokenNumber = parseInt(lastEntry[0].token);
+    const nextTokenNumber = isNaN(lastTokenNumber) ? 1 : lastTokenNumber + 1;
+    
+    return nextTokenNumber.toString().padStart(4, '0');
+  } catch (error) {
+    console.error("TOKEN GENERATION ERROR:", error);
+    return "0001"; // Fallback safe value
+  }
+};
 
 // --- 1. SAVE OR UPDATE PATIENT ---
 router.post('/save', authenticate, async (req: any, res: any) => {
@@ -75,13 +41,12 @@ router.post('/save', authenticate, async (req: any, res: any) => {
     let result;
     const isValidId = id && id !== "null" && id !== "" && id !== undefined;
 
-    // 1. Always generate a fresh token for this specific visit/click
+    // IMPORTANT: Generate fresh token for every NEW visit record/click
     const freshToken = await getNextToken();
 
     const formattedData: any = {
       user_id: userId,
-
-      token: freshToken, // Assign the new token here
+      token: freshToken, 
       phoneNumber: req.body.phoneNumber || "null",
       firstName: req.body.firstName || "null",
       lastName: req.body.lastName || "null",
@@ -103,29 +68,22 @@ router.post('/save', authenticate, async (req: any, res: any) => {
     };
 
     if (isValidId) {
-      // 2. Update existing patient & get the new token back from DB
+      // Update existing and get the new token back
       result = await db.update(all_entries)
         .set(formattedData)
         .where(and(eq(all_entries.id, id), eq(all_entries.user_id, userId)))
-        .returning({ 
-          id: all_entries.id, 
-          token: all_entries.token 
-        });
+        .returning({ id: all_entries.id, token: all_entries.token });
     } else {
-      // 3. Insert new patient & get the new token back from DB
+      // Insert new and get the new token back
       result = await db.insert(all_entries)
         .values(formattedData)
-        .returning({ 
-          id: all_entries.id, 
-          token: all_entries.token 
-        });
+        .returning({ id: all_entries.id, token: all_entries.token });
     }
 
     if (!result || result.length === 0) {
       return res.status(404).json({ error: "Operation failed" });
     }
 
-    // 4. Return the explicit result to the frontend
     res.json({ 
         success: true, 
         entryId: result[0].id, 
@@ -138,7 +96,7 @@ router.post('/save', authenticate, async (req: any, res: any) => {
   }
 });
 
-// --- 2. SEARCH BY PHONE ---
+// --- 2. SEARCH BY PHONE (Demographics only) ---
 router.get('/', authenticate, async (req, res) => {
   const { phone } = req.query;
   if (!phone) return res.status(400).json({ error: "Phone required" });
@@ -170,31 +128,29 @@ router.get('/', authenticate, async (req, res) => {
   }
 });
 
-// --- 3. VERIFY TOKEN (Used by Vitals Page) ---
-// --- 3. VERIFY TOKEN (Used by Vitals Page) ---
+// --- 3. VERIFY TOKEN (Triage/Vitals Station) ---
 router.get('/verify-token/:token', authenticate, async (req, res) => {
-    // Explicitly cast to string to satisfy Drizzle's type checker
     const token = req.params.token as string; 
-    const today = new Date().toISOString().split('T')[0];
   
     try {
       const [patient] = await db.select()
         .from(all_entries)
         .where(and(
-            // Use the casted variable here
             eq(all_entries.token, token),
-            sql`DATE(${all_entries.createdAt}) = ${today}`
+            sql`DATE(${all_entries.createdAt}) = CURRENT_DATE`
         ))
+        .orderBy(desc(all_entries.createdAt))
         .limit(1);
   
       if (!patient) {
-        return res.status(404).json({ success: false, error: "Invalid or expired token" });
+        return res.status(404).json({ success: false, error: "Invalid or expired token for today" });
       }
   
       res.json({ 
         success: true, 
         patientId: patient.id, 
-        phoneNumber: patient.phoneNumber 
+        phoneNumber: patient.phoneNumber,
+        firstName: patient.firstName 
       });
     } catch (err) {
       console.error("VERIFY ERROR:", err);

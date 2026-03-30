@@ -33,6 +33,8 @@ export const all_entries = pgTable("all_entries", {
   medicineHistory: text("medicineHistory").default("null"),
   allergies: text("allergies").default("null"),
   token: varchar("token", { length: 10 }),
+    tokenDate: date("token_date"),           // date of latest check-in
+  tokenTime: time("token_time"),            // time of last check-in
 });
 
 export const vitals = pgTable("vitals", {

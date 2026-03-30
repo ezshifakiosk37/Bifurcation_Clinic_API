@@ -35,24 +35,19 @@ const getNow = () => {
 // --- HELPER: GENERATE SEQUENTIAL DAILY TOKEN ---
 const getNextToken = async () => {
   try {
-    // Use PKT date, not UTC date
     const today = new Intl.DateTimeFormat('en-CA', {
       timeZone: 'Asia/Karachi',
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-    }).format(new Date()); // "YYYY-MM-DD" in PKT
+      year: 'numeric', month: '2-digit', day: '2-digit',
+    }).format(new Date());
 
     const lastEntry = await db
       .select({ token: all_entries.token })
       .from(all_entries)
-      .where(eq(all_entries.createdDate, today))
+      .where(eq(all_entries.tokenDate, today))   // use tokenDate here too
       .orderBy(desc(all_entries.token))
       .limit(1);
 
-    if (lastEntry.length === 0 || !lastEntry[0].token) {
-      return "0001";
-    }
+    if (lastEntry.length === 0 || !lastEntry[0].token) return "0001";
 
     const lastTokenNumber = parseInt(lastEntry[0].token);
     const nextTokenNumber = isNaN(lastTokenNumber) ? 1 : lastTokenNumber + 1;
@@ -73,40 +68,67 @@ router.post('/save', authenticate, async (req: any, res: any) => {
     const freshToken = await getNextToken();
     const { createdDate, createdTime } = getNow();
 
-    const formattedData: any = {
-      user_id: userId,
-      token: freshToken,
-      createdDate,
-      createdTime,
-      phoneNumber: req.body.phoneNumber || "null",
-      firstName: req.body.firstName || "null",
-      lastName: req.body.lastName || "null",
-      father_husband: req.body.father_husband || "null",
-      age: parseInt(req.body.age) || 0,
-      gender: req.body.gender || "null",
-      email: req.body.email || "null",
-      cnic: req.body.cnic || "null",
-      dob: req.body.dob || "null",
-      country: req.body.country || "null",
-      province: req.body.province || "null",
-      city: req.body.city || "null",
-      stAddress: req.body.stAddress || "null",
-      languages: req.body.languages || "null",
-      surgicalHistory: req.body.surgicalHistory || "None",
-      medicalHistory: Array.isArray(req.body.medicalHistory) ? JSON.stringify(req.body.medicalHistory) : "[]",
-      medicineHistory: Array.isArray(req.body.medicineHistory) ? JSON.stringify(req.body.medicineHistory) : "[]",
-      allergies: Array.isArray(req.body.allergies) ? JSON.stringify(req.body.allergies) : "[]",
-    };
-
     let result;
+
     if (isValidId) {
+      // Returning patient — only update token + tokenDate/Time, never touch createdDate/Time
       result = await db.update(all_entries)
-        .set(formattedData)
+        .set({
+          user_id: userId,
+          token: freshToken,
+          tokenDate: createdDate,
+          tokenTime: createdTime,
+          phoneNumber: req.body.phoneNumber || "null",
+          firstName: req.body.firstName || "null",
+          lastName: req.body.lastName || "null",
+          father_husband: req.body.father_husband || "null",
+          age: parseInt(req.body.age) || 0,
+          gender: req.body.gender || "null",
+          email: req.body.email || "null",
+          cnic: req.body.cnic || "null",
+          dob: req.body.dob || "null",
+          country: req.body.country || "null",
+          province: req.body.province || "null",
+          city: req.body.city || "null",
+          stAddress: req.body.stAddress || "null",
+          languages: req.body.languages || "null",
+          surgicalHistory: req.body.surgicalHistory || "None",
+          medicalHistory: Array.isArray(req.body.medicalHistory) ? JSON.stringify(req.body.medicalHistory) : "[]",
+          medicineHistory: Array.isArray(req.body.medicineHistory) ? JSON.stringify(req.body.medicineHistory) : "[]",
+          allergies: Array.isArray(req.body.allergies) ? JSON.stringify(req.body.allergies) : "[]",
+        })
         .where(and(eq(all_entries.id, id), eq(all_entries.user_id, userId)))
         .returning({ id: all_entries.id, token: all_entries.token });
+
     } else {
+      // New patient — set both createdDate/Time and tokenDate/Time
       result = await db.insert(all_entries)
-        .values(formattedData)
+        .values({
+          user_id: userId,
+          token: freshToken,
+          createdDate,
+          createdTime,
+          tokenDate: createdDate,
+          tokenTime: createdTime,
+          phoneNumber: req.body.phoneNumber || "null",
+          firstName: req.body.firstName || "null",
+          lastName: req.body.lastName || "null",
+          father_husband: req.body.father_husband || "null",
+          age: parseInt(req.body.age) || 0,
+          gender: req.body.gender || "null",
+          email: req.body.email || "null",
+          cnic: req.body.cnic || "null",
+          dob: req.body.dob || "null",
+          country: req.body.country || "null",
+          province: req.body.province || "null",
+          city: req.body.city || "null",
+          stAddress: req.body.stAddress || "null",
+          languages: req.body.languages || "null",
+          surgicalHistory: req.body.surgicalHistory || "None",
+          medicalHistory: Array.isArray(req.body.medicalHistory) ? JSON.stringify(req.body.medicalHistory) : "[]",
+          medicineHistory: Array.isArray(req.body.medicineHistory) ? JSON.stringify(req.body.medicineHistory) : "[]",
+          allergies: Array.isArray(req.body.allergies) ? JSON.stringify(req.body.allergies) : "[]",
+        })
         .returning({ id: all_entries.id, token: all_entries.token });
     }
 
@@ -157,16 +179,19 @@ router.get('/', authenticate, async (req, res) => {
 // --- 3. VERIFY TOKEN ---
 router.get('/verify-token/:token', authenticate, async (req, res) => {
   const token = req.params.token as string;
-  const today = new Date().toISOString().split('T')[0];
+  const today = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Karachi',
+    year: 'numeric', month: '2-digit', day: '2-digit',
+  }).format(new Date());
 
   try {
     const [patient] = await db.select()
       .from(all_entries)
       .where(and(
         eq(all_entries.token, token),
-        eq(all_entries.createdDate, today)
+        eq(all_entries.tokenDate, today)   // use tokenDate, not createdDate
       ))
-      .orderBy(desc(all_entries.createdTime))
+      .orderBy(desc(all_entries.tokenTime))
       .limit(1);
 
     if (!patient) {

@@ -198,6 +198,10 @@ router.get('/verify-token/:token', authenticate, async (req, res) => {
       return res.status(404).json({ success: false, error: "Invalid or expired token for today" });
     }
 
+    if (patient.vitalsRecorded) {
+      return res.status(409).json({ success: false, error: "Token already used today" });
+    }
+
     res.json({
       success: true,
       patientId: patient.id,
@@ -237,6 +241,10 @@ router.post('/save-vitals', authenticate, async (req: any, res: any) => {
       Weight: v.Weight?.toString(),
       Height: v.Height?.toString(),
     }).returning();
+
+    await db.update(all_entries)
+      .set({ vitalsRecorded: true })
+      .where(eq(all_entries.id, patientId));
 
     res.status(201).json({ success: true, data: newVital[0] });
   } catch (err: any) {

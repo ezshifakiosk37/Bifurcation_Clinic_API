@@ -1,4 +1,4 @@
-import { pgTable, text, timestamp, uuid, varchar, integer, date, time } from "drizzle-orm/pg-core";
+import { pgTable, text, timestamp, uuid, varchar, integer, date, time , boolean} from "drizzle-orm/pg-core";
 
 export const users = pgTable("users", {
     id: uuid("id").primaryKey().defaultRandom(),
@@ -32,8 +32,9 @@ export const all_entries = pgTable("all_entries", {
   medicalHistory: text("medicalHistory").default("null"),
   medicineHistory: text("medicineHistory").default("null"),
   allergies: text("allergies").default("null"),
+  vitalsRecorded: boolean("vitals_recorded").default(false).notNull(),
   token: varchar("token", { length: 10 }),
-    tokenDate: date("token_date"),           // date of latest check-in
+  tokenDate: date("token_date"),           // date of latest check-in
   tokenTime: time("token_time"),            // time of last check-in
 });
 

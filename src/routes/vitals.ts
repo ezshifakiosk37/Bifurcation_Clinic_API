@@ -16,8 +16,16 @@ router.post('/save', authenticate, async (req, res) => {
       .limit(1);
 
     const now = new Date();
-    const createdDate = now.toISOString().split('T')[0];
-    const createdTime = now.toTimeString().split(' ')[0];
+    const pktDate = new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'Asia/Karachi',
+      year: 'numeric', month: '2-digit', day: '2-digit',
+    }).format(now);
+    const pktTime = new Intl.DateTimeFormat('en-GB', {
+      timeZone: 'Asia/Karachi',
+      hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false,
+    }).format(now);
+    const createdDate = pktDate;
+    const createdTime = pktTime;
 
     const [inserted] = await db.insert(vitals).values({
       patient_id: patientId,

@@ -9,15 +9,39 @@ const router = Router();
 // --- HELPER: Get current date and time strings ---
 const getNow = () => {
   const now = new Date();
-  const createdDate = now.toISOString().split('T')[0]; // "YYYY-MM-DD"
-  const createdTime = now.toTimeString().split(' ')[0]; // "HH:MM:SS"
+
+  // Force Pakistan Standard Time (UTC+5) for date and time
+  const pktFormatter = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Karachi',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  });
+
+  const pktTimeFormatter = new Intl.DateTimeFormat('en-GB', {
+    timeZone: 'Asia/Karachi',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false,
+  });
+
+  const createdDate = pktFormatter.format(now); // "YYYY-MM-DD"
+  const createdTime = pktTimeFormatter.format(now); // "HH:MM:SS"
+
   return { createdDate, createdTime };
 };
 
 // --- HELPER: GENERATE SEQUENTIAL DAILY TOKEN ---
 const getNextToken = async () => {
   try {
-    const today = new Date().toISOString().split('T')[0]; // "YYYY-MM-DD"
+    // Use PKT date, not UTC date
+    const today = new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'Asia/Karachi',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    }).format(new Date()); // "YYYY-MM-DD" in PKT
 
     const lastEntry = await db
       .select({ token: all_entries.token })

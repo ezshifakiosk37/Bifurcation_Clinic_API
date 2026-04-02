@@ -78,6 +78,7 @@ router.post('/save', authenticate, async (req: any, res: any) => {
           token: freshToken,
           tokenDate: createdDate,
           tokenTime: createdTime,
+          vitalsRecorded: false,
           phoneNumber: req.body.phoneNumber || "null",
           firstName: req.body.firstName || "null",
           lastName: req.body.lastName || "null",

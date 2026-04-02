@@ -201,7 +201,7 @@ router.get('/verify-token/:token', authenticate, async (req, res) => {
       return res.status(404).json({ success: false, error: "Invalid or expired token for today" });
     }
 
-    if (patient.vitalsRecorded) {
+if (patient.vitalsRecorded && patient.tokenDate === today) {
       return res.status(409).json({ success: false, error: "Token already used today" });
     }
 

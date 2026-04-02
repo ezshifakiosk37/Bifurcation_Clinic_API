@@ -146,12 +146,16 @@ router.post('/save', authenticate, async (req: any, res: any) => {
 
 // --- 2. SEARCH BY PHONE ---
 router.get('/', authenticate, async (req, res) => {
-  const { phone } = req.query;
-  if (!phone) return res.status(400).json({ error: "Phone required" });
+  const { phone, cnic } = req.query;
+  if (!phone && !cnic) return res.status(400).json({ error: "Phone or CNIC required" });
 
   try {
     const [entry] = await db.select().from(all_entries)
-      .where(eq(all_entries.phoneNumber, phone as string))
+      .where(
+        cnic
+          ? eq(all_entries.cnic, cnic as string)
+          : eq(all_entries.phoneNumber, phone as string)
+      )
       .orderBy(desc(all_entries.createdDate), desc(all_entries.createdTime))
       .limit(1);
 

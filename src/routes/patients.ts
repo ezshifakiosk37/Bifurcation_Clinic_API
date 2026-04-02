@@ -193,11 +193,10 @@ router.get('/verify-token/:token', authenticate, async (req, res) => {
       .from(all_entries)
       .where(and(
         eq(all_entries.token, token),
-        eq(all_entries.tokenDate, today)   // use tokenDate, not createdDate
+        eq(all_entries.tokenDate, today)
       ))
-      .orderBy(desc(all_entries.tokenTime))
+      .orderBy(desc(all_entries.tokenDate), desc(all_entries.tokenTime))
       .limit(1);
-
     if (!patient) {
       return res.status(404).json({ success: false, error: "Invalid or expired token for today" });
     }

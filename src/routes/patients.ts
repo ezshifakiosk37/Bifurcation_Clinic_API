@@ -1,3 +1,4 @@
+// routes/pateints.ts
 import { Router } from 'express';
 import { db } from '../db';
 import { all_entries, vitals } from '../db/schema';
@@ -244,6 +245,7 @@ router.post('/save-vitals', authenticate, async (req: any, res: any) => {
       Temperature: v.Temperature?.toString(),
       Weight: v.Weight?.toString(),
       Height: v.Height?.toString(),
+      symptoms: v.symptoms ? v.symptoms.toString() : null,
     }).returning();
 
     await db.update(all_entries)

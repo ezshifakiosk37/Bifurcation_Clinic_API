@@ -1,3 +1,4 @@
+// routes/vitals.ts 
 import { Router } from 'express';
 import { db } from '../db';
 import { vitals, all_entries } from '../db/schema';
@@ -39,6 +40,7 @@ router.post('/save', authenticate, async (req, res) => {
       Temperature: vData.Temperature,
       Weight: vData.Weight,
       Height: vData.Height,
+      symptoms: vData.symptoms || null,
     }).returning();
 
     res.json({ success: true, id: inserted.id });
@@ -67,6 +69,7 @@ router.get('/history-by-phone/:phone', authenticate, async (req, res) => {
         Temperature: vitals.Temperature,
         Weight: vitals.Weight,
         Height: vitals.Height,
+        symptoms: vitals.symptoms,
         createdDate: vitals.createdDate,
         createdTime: vitals.createdTime,
       })
@@ -92,6 +95,7 @@ router.get('/history-by-phone/:phone', authenticate, async (req, res) => {
       Temperature: rec.Temperature,
       Weight: rec.Weight,
       Height: rec.Height,
+      symptoms: rec.symptoms,
       createdDate: rec.createdDate,
       createdTime: rec.createdTime,
     }));

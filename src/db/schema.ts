@@ -1,3 +1,4 @@
+// src/db/schema.ts 
 import { pgTable, text, timestamp, uuid, varchar, integer, date, time , boolean} from "drizzle-orm/pg-core";
 
 export const users = pgTable("users", {
@@ -47,6 +48,7 @@ export const vitals = pgTable("vitals", {
   Temperature: text("Temperature"),
   Weight: text("Weight"),
   Height: text("Height"),
+  symptoms: text("symptoms"),
   token: varchar("token", { length: 10 }),
   createdDate: date("created_date"),
   createdTime: time("created_time"),

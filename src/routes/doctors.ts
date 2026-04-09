@@ -11,8 +11,11 @@ import {
 
 import { eq, and, desc, sql } from 'drizzle-orm';
 import { authenticate } from '../middleware/auth';
+import bcrypt from 'bcryptjs';
+import jwt from 'jsonwebtoken';
 
 const router = Router();
+const JWT_SECRET = process.env.JWT_SECRET || 'your-very-strong-secret-key-2026-change-in-prod';
 
 // ====================== HELPER: Get Current Date & Time (Pakistan Time) ======================
 const getNow = () => {
@@ -33,14 +36,122 @@ const getNow = () => {
     hour12: false,
   }).format(now);
 
-  return { 
-    date: pktDate,   
-    time: pktTime    
-  };
+  return { date: pktDate, time: pktTime };
 };
 
-// ====================== 1. DASHBOARD STATS ======================
-router.get('/stats', authenticate, async (req: any, res: any) => {
+// ====================== 1. REGISTER DOCTOR (PUBLIC) ======================
+router.post('/register', async (req, res) => {
+  const { title, firstName, lastName, email, password, phone, gender, specializations, qualifications, experience, city, photo } = req.body;
+
+  try {
+    const existing = await db.select().from(doctors).where(eq(doctors.email, email)).limit(1);
+    if (existing.length > 0) {
+      return res.status(409).json({ success: false, error: "Email already registered" });
+    }
+
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    await db.insert(doctors).values({
+      title: title || 'Dr.',
+      firstName,
+      lastName,
+      email,
+      password: hashedPassword,
+      phone: phone || null,
+      gender: gender || null,
+      photo: photo || null,
+      specializations: specializations || [],
+      qualifications: qualifications || [],
+      experience: experience || 0,
+      city: city || null,
+    });
+
+    res.status(201).json({ 
+      success: true, 
+      message: "Doctor registered successfully. Please login." 
+    });
+  } catch (err: any) {
+    console.error(err);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// ====================== 2. LOGIN DOCTOR (PUBLIC) ======================
+router.post('/login', async (req, res) => {
+  const { email, password } = req.body;
+
+  try {
+    const [doctor] = await db.select().from(doctors).where(eq(doctors.email, email)).limit(1);
+    if (!doctor) return res.status(401).json({ success: false, error: "Invalid credentials" });
+
+    const isMatch = await bcrypt.compare(password, doctor.password);
+    if (!isMatch) return res.status(401).json({ success: false, error: "Invalid credentials" });
+
+    const token = jwt.sign(
+      { doctorId: doctor.id, email: doctor.email },
+      JWT_SECRET,
+      { expiresIn: '7d' }
+    );
+
+    res.json({
+      success: true,
+      token,
+      doctor: { ...doctor, password: undefined }
+    });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// ====================== 3. PROTECTED ROUTES ======================
+
+// Get Doctor Profile
+router.get('/profile', authenticate, async (req: any, res) => {
+  try {
+    const [doctor] = await db.select().from(doctors)
+      .where(eq(doctors.id, req.user.doctorId))
+      .limit(1);
+
+    if (!doctor) return res.status(404).json({ success: false, error: "Doctor not found" });
+
+    res.json({ success: true, doctor: { ...doctor, password: undefined } });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// Update Doctor Profile
+router.put('/profile', authenticate, async (req: any, res) => {
+  const doctorId = req.user.doctorId;
+  const { title, firstName, lastName, phone, gender, specializations, qualifications, experience, city, photo } = req.body;
+
+  try {
+    const [updated] = await db.update(doctors)
+      .set({
+        title,
+        firstName,
+        lastName,
+        phone,
+        gender,
+        specializations,
+        qualifications,
+        experience: experience !== undefined ? experience : undefined,
+        city,
+        photo,
+        updatedDate: getNow().date,
+        updatedTime: getNow().time,
+      })
+      .where(eq(doctors.id, doctorId))
+      .returning();
+
+    res.json({ success: true, doctor: { ...updated, password: undefined } });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// ====================== DASHBOARD STATS ======================
+router.get('/stats', authenticate, async (req: any, res) => {
   const today = new Intl.DateTimeFormat('en-CA', {
     timeZone: 'Asia/Karachi',
     year: 'numeric', 
@@ -83,8 +194,8 @@ router.get('/stats', authenticate, async (req: any, res: any) => {
   }
 });
 
-// ====================== 2. TODAY'S QUEUE ======================
-router.get('/queue', authenticate, async (req: any, res: any) => {
+// ====================== TODAY'S QUEUE ======================
+router.get('/queue', authenticate, async (req: any, res) => {
   const today = new Intl.DateTimeFormat('en-CA', {
     timeZone: 'Asia/Karachi',
     year: 'numeric', month: '2-digit', day: '2-digit'
@@ -121,34 +232,31 @@ router.get('/queue', authenticate, async (req: any, res: any) => {
   }
 });
 
-// ====================== 3. GET PATIENT DETAIL FOR CONSULTATION ======================
-// FIXED VERSION
+// ====================== GET PATIENT FOR CONSULTATION ======================
 router.get('/patient/:patientId', authenticate, async (req, res) => {
-  const patientId = req.params.patientId as string;   // ← Explicit cast
+  const patientId = req.params.patientId as string;
   const today = new Intl.DateTimeFormat('en-CA', {
     timeZone: 'Asia/Karachi',
     year: 'numeric', month: '2-digit', day: '2-digit'
   }).format(new Date());
 
   try {
-    // Fixed: Use sql template or String() to avoid type error
     const [patient] = await db
       .select()
       .from(all_entries)
-      .where(eq(all_entries.id, String(patientId)))   // ← Fixed here
+      .where(eq(all_entries.id, String(patientId)))
       .limit(1);
 
     if (!patient) {
       return res.status(404).json({ success: false, error: "Patient not found" });
     }
 
-    // Get today's vitals (latest one)
     const [todayVitals] = await db
       .select()
       .from(vitals)
       .where(
         and(
-          eq(vitals.patient_id, String(patientId)),     // ← Fixed here
+          eq(vitals.patient_id, String(patientId)),
           eq(vitals.createdDate, today)
         )
       )
@@ -166,24 +274,13 @@ router.get('/patient/:patientId', authenticate, async (req, res) => {
   }
 });
 
-// ====================== 4. SAVE PRESCRIPTION ======================
-router.post('/prescription', authenticate, async (req: any, res: any) => {
-  const { 
-    patientId, 
-    token,
-    diagnosis, 
-    clinicalNotes, 
-    medicines 
-  } = req.body;
-
-  const doctorId = req.user?.doctorId || req.user?.id;
+// ====================== SAVE PRESCRIPTION (Supports End Session) ======================
+router.post('/prescription', authenticate, async (req: any, res) => {
+  const { patientId, token, diagnosis, clinicalNotes, medicines } = req.body;
+  const doctorId = req.user.doctorId;
 
   if (!patientId || !doctorId || !token) {
     return res.status(400).json({ success: false, error: "Missing patientId, doctorId or token" });
-  }
-
-  if (!Array.isArray(medicines) || medicines.length === 0) {
-    return res.status(400).json({ success: false, error: "At least one medicine is required" });
   }
 
   const { date, time } = getNow();
@@ -192,31 +289,41 @@ router.post('/prescription', authenticate, async (req: any, res: any) => {
     const [newPrescription] = await db.insert(prescriptions).values({
       patient_id: patientId,
       doctor_id: doctorId,
-      token: token,
+      token,
       prescriptionDate: date,
       prescriptionTime: time,
-      diagnosis: diagnosis || null,
-      clinicalNotes: clinicalNotes || null,
+      diagnosis: diagnosis || "No diagnosis provided",
+      clinicalNotes: clinicalNotes || "Session ended without notes",
       createdDate: date,
       createdTime: time,
     }).returning({ id: prescriptions.id });
 
     const prescriptionId = newPrescription.id;
 
-    const medicineValues = medicines.map((med: any) => ({
-      prescription_id: prescriptionId,
-      medicineName: med.medicineName || med.name,
-      morning: Boolean(med.morning),
-      afternoon: Boolean(med.afternoon),
-      night: Boolean(med.night),
-      beforeMeal: Boolean(med.beforeMeal),
-      afterMeal: Boolean(med.afterMeal ?? true),
-      dosage: med.dosage || null,
-      duration: med.duration || null,
-    }));
+    // Allow empty medicines (for "End Session" button)
+    const medicineValues = Array.isArray(medicines) && medicines.length > 0
+      ? medicines.map((med: any) => ({
+          prescription_id: prescriptionId,
+          medicineName: med.medicineName || med.name || "No medicine",
+          morning: Boolean(med.morning),
+          afternoon: Boolean(med.afternoon),
+          night: Boolean(med.night),
+          beforeMeal: Boolean(med.beforeMeal),
+          afterMeal: Boolean(med.afterMeal ?? true),
+        }))
+      : [{
+          prescription_id: prescriptionId,
+          medicineName: "No medicine prescribed",
+          morning: false,
+          afternoon: false,
+          night: false,
+          beforeMeal: false,
+          afterMeal: true,
+        }];
 
     await db.insert(prescription_medicines).values(medicineValues);
 
+    // Mark patient as completed
     await db.update(all_entries)
       .set({ vitalsRecorded: true })
       .where(eq(all_entries.id, patientId));

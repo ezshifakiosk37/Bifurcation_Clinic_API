@@ -5,6 +5,7 @@ import authRoutes from './routes/auth';
 import patientRoutes from './routes/patients';
 import vitalRoutes from './routes/vitals';
 import { authenticate } from './middleware/auth';
+import doctorRoutes from './routes/doctors';
 
 // 1. Load Environment Variables early
 dotenv.config();
@@ -32,6 +33,7 @@ app.get('/health', (req, res) => {
 
 // 5. API Routes
 app.use('/api/auth', authRoutes);
+app.use('/api/doctors', doctorRoutes);
 app.use('/api/patients', authenticate, patientRoutes);
 app.use('/api/vitals', authenticate, vitalRoutes);
 

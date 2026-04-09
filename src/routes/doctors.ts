@@ -49,14 +49,14 @@ router.post('/register', async (req, res) => {
       return res.status(409).json({ success: false, error: "Email already registered" });
     }
 
-    const hashedPassword = await bcrypt.hash(password, 10);
+    // const hashedPassword = await bcrypt.hash(password, 10);
 
     await db.insert(doctors).values({
       title: title || 'Dr.',
       firstName,
       lastName,
       email,
-      password: hashedPassword,
+      password,
       phone: phone || null,
       gender: gender || null,
       photo: photo || null,
@@ -88,7 +88,10 @@ router.post('/login', async (req, res) => {
     if (!isMatch) return res.status(401).json({ success: false, error: "Invalid credentials" });
 
     const token = jwt.sign(
-      { doctorId: doctor.id, email: doctor.email },
+      { 
+        userId: doctor.id,     // ← Changed here
+        email: doctor.email 
+      },
       JWT_SECRET,
       { expiresIn: '7d' }
     );

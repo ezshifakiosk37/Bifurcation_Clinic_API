@@ -62,7 +62,7 @@ const getNextToken = async () => {
 // --- 1. SAVE OR UPDATE PATIENT ---
 router.post('/save', authenticate, async (req: any, res: any) => {
   const { id } = req.body;
-  const userId = req.user.userId;
+  const userId = req.user.id;
 
   try {
     const isValidId = id && id !== "null" && id !== "" && id !== undefined;

@@ -122,29 +122,3 @@ export const prescription_medicines = pgTable("prescription_medicines", {
   dosage: text("dosage"),      // e.g. "500mg", "1 tablet"
   duration: text("duration"),  // e.g. "3 days", "1 week"
 });
-
-// ====================== RELATIONS ======================
-export const allEntriesRelations = relations(all_entries, ({ one, many }) => ({
-  user: one(users),
-  vitals: many(vitals),
-  prescriptions: many(prescriptions),
-}));
-
-export const vitalsRelations = relations(vitals, ({ one }) => ({
-  patient: one(all_entries),
-  recordedBy: one(users),
-}));
-
-export const prescriptionsRelations = relations(prescriptions, ({ one, many }) => ({
-  patient: one(all_entries),
-  doctor: one(doctors),
-  medicines: many(prescription_medicines),
-}));
-
-export const prescriptionMedicinesRelations = relations(prescription_medicines, ({ one }) => ({
-  prescription: one(prescriptions),
-}));
-
-export const doctorsRelations = relations(doctors, ({ many }) => ({
-  prescriptions: many(prescriptions),
-}));

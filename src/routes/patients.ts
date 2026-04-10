@@ -376,38 +376,54 @@ router.get('/today-queue', authenticate, async (req, res) => {
       return res.json({ success: true, patients: [] });
     }
 
-    // Step 2: for each patient, get only their latest vitals (for symptoms)
+// Step 2: for each patient, get only their latest vitals
     const patientIds = patients.map(p => p.id);
 
     const latestVitals = await db
       .select({
         patient_id: vitals.patient_id,
         symptoms: vitals.symptoms,
+        PulseRate: vitals.PulseRate,
+        BloodOxygen: vitals.BloodOxygen,
+        Systolic: vitals.Systolic,
+        Diastolic: vitals.Diastolic,
+        Temperature: vitals.Temperature,
+        Weight: vitals.Weight,
+        Height: vitals.Height,
       })
       .from(vitals)
       .where(sql`${vitals.patient_id} = ANY(ARRAY[${sql.join(patientIds.map(id => sql`${id}::uuid`), sql`, `)}])`)
       .orderBy(desc(vitals.createdDate), desc(vitals.createdTime));
 
     // Step 3: keep only the latest vitals per patient (first match wins due to ordering)
-    const vitalsMap = new Map<string, string | null>();
+    const vitalsMap = new Map<string, any>();
     for (const v of latestVitals) {
       if (!vitalsMap.has(v.patient_id)) {
-        vitalsMap.set(v.patient_id, v.symptoms);
+        vitalsMap.set(v.patient_id, v);
       }
     }
 
-    // Step 4: merge
-    const result = patients.map(p => ({
-      id: p.id,
-      token: p.token,
-      firstName: p.firstName,
-      lastName: p.lastName,
-      age: p.age,
-      gender: p.gender,
-      vitalsRecorded: p.vitalsRecorded,
-      symptoms: vitalsMap.get(p.id) ?? null,
-    }));
-
+    // Step 4: merge with nested vitals object
+    const result = patients.map(p => {
+      const v = vitalsMap.get(p.id);
+      return {
+        id: p.id,
+        token: p.token,
+        firstName: p.firstName,
+        lastName: p.lastName,
+        age: p.age,
+        gender: p.gender,
+        vitalsRecorded: p.vitalsRecorded,
+        symptoms: v?.symptoms ?? null,
+        vitals: v ? {
+          temp: v.Temperature ?? '—',
+          bp: (v.Systolic && v.Diastolic) ? `${v.Systolic}/${v.Diastolic}` : '—',
+          pulse: v.PulseRate ?? '—',
+          weight: v.Weight ?? '—',
+        } : null,
+      };
+    });
+    
     res.json({ success: true, patients: result });
 
   } catch (err: any) {

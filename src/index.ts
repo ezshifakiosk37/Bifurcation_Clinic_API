@@ -5,7 +5,8 @@ import authRoutes from './routes/auth';
 import patientRoutes from './routes/patients';
 import vitalRoutes from './routes/vitals';
 import { authenticate } from './middleware/auth';
-// import doctorRoutes from './routes/doctors';
+import docAuthRouter from './routes/docAuth'; //doc login
+// import doctorRoutes from './routes/doctors'; //doctor.ts
 
 // 1. Load Environment Variables early
 dotenv.config();
@@ -33,10 +34,10 @@ app.get('/health', (req, res) => {
 
 // 5. API Routes
 app.use('/api/auth', authRoutes);
-// app.use('/api/doctors', doctorRoutes);
+// app.use('/api/doctors', doctorRoutes); //doctor.ts
 app.use('/api/patients', authenticate, patientRoutes);
 app.use('/api/vitals', authenticate, vitalRoutes);
-
+app.use('/api/doc-auth', docAuthRouter);    //Doctor login
 // 6. Global Error Handler
 // Prevents the server from crashing and leaking stack traces to users
 app.use((err: any, req: any, res: any, next: any) => {

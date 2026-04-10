@@ -271,11 +271,15 @@ router.get('/today-stats', authenticate, async (req, res) => {
   try {
     const [stats] = await db
       .select({
-        totalPatients: sql<number>`count(*)`,
-        inQueue: sql<number>`count(*) filter (where ${all_entries.vitalsRecorded} = false)`,
-        completed: sql<number>`count(*) filter (where ${all_entries.vitalsRecorded} = true)`,
+        totalPatients: sql<number>`count(distinct ${all_entries.id})`,
+        inQueue: sql<number>`count(distinct ${all_entries.id}) filter (where ${all_entries.vitalsRecorded} = true)`,
+        completed: sql<number>`count(distinct ${prescriptions.id})`,
       })
       .from(all_entries)
+      .leftJoin(prescriptions, and(
+        eq(prescriptions.patient_id, all_entries.id),
+        eq(prescriptions.prescriptionDate, today)
+      ))
       .where(eq(all_entries.tokenDate, today));
 
     res.json({
@@ -338,6 +342,42 @@ router.post('/save-prescription', authenticate, async (req: any, res: any) => {
   } catch (err: any) {
     console.error("SAVE PRESCRIPTION ERROR:", err);
     res.status(500).json({ error: "Failed to save prescription", details: err.message });
+  }
+});
+
+// ─────────────────────────────────────────────
+// 7. TODAY'S QUEUE FOR DOCTOR DASHBOARD
+// ─────────────────────────────────────────────
+router.get('/today-queue', authenticate, async (req, res) => {
+  const today = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Karachi',
+    year: 'numeric', month: '2-digit', day: '2-digit',
+  }).format(new Date());
+
+  try {
+    const patients = await db
+      .select({
+        id: all_entries.id,
+        token: all_entries.token,
+        firstName: all_entries.firstName,
+        lastName: all_entries.lastName,
+        age: all_entries.age,
+        gender: all_entries.gender,
+        symptoms: vitals.symptoms,
+        vitalsRecorded: all_entries.vitalsRecorded,
+      })
+      .from(all_entries)
+      .leftJoin(vitals, eq(vitals.patient_id, all_entries.id))
+      .where(eq(all_entries.tokenDate, today))
+      .orderBy(desc(all_entries.tokenTime));
+
+    res.json({
+      success: true,
+      patients: patients || [],
+    });
+  } catch (err: any) {
+    console.error("TODAY QUEUE ERROR:", err);
+    res.status(500).json({ error: "Failed to load queue" });
   }
 });
 

@@ -270,11 +270,11 @@ router.get('/today-stats', authenticate, async (req, res) => {
   }).format(new Date());
 
   try {
-    const [stats] = await db
+const [stats] = await db
       .select({
         totalPatients: sql<number>`count(distinct ${all_entries.id})`,
         inQueue: sql<number>`count(distinct ${all_entries.id}) filter (where ${all_entries.vitalsRecorded} = true)`,
-        completed: sql<number>`count(distinct ${prescriptions.id})`,
+        completed: sql<number>`count(distinct ${prescriptions.patient_id})`,
       })
       .from(all_entries)
       .leftJoin(prescriptions, and(
@@ -356,7 +356,7 @@ router.get('/today-queue', authenticate, async (req, res) => {
   }).format(new Date());
 
   try {
-    // Step 1: get today's patients (no join — no duplicates)
+// Step 1: get today's patients with completion status
     const patients = await db
       .select({
         id: all_entries.id,
@@ -371,6 +371,14 @@ router.get('/today-queue', authenticate, async (req, res) => {
       .from(all_entries)
       .where(eq(all_entries.tokenDate, today))
       .orderBy(desc(all_entries.tokenTime));
+
+    // Step 1b: get which patients already have a prescription today
+    const completedToday = await db
+      .select({ patient_id: prescriptions.patient_id })
+      .from(prescriptions)
+      .where(eq(prescriptions.prescriptionDate, today));
+
+    const completedIds = new Set(completedToday.map(c => c.patient_id));
 
     if (patients.length === 0) {
       return res.json({ success: true, patients: [] });
@@ -403,7 +411,7 @@ router.get('/today-queue', authenticate, async (req, res) => {
       }
     }
 
-    // Step 4: merge with nested vitals object
+// Step 4: merge with nested vitals object + completion flag
     const result = patients.map(p => {
       const v = vitalsMap.get(p.id);
       return {
@@ -414,6 +422,7 @@ router.get('/today-queue', authenticate, async (req, res) => {
         age: p.age,
         gender: p.gender,
         vitalsRecorded: p.vitalsRecorded,
+        isCompleted: completedIds.has(p.id),
         symptoms: v?.symptoms ?? null,
         vitals: v ? {
           temp: v.Temperature ?? '—',
@@ -423,8 +432,12 @@ router.get('/today-queue', authenticate, async (req, res) => {
         } : null,
       };
     });
-    
-    res.json({ success: true, patients: result });
+
+res.json({
+      success: true,
+      patients: result.filter(p => !p.isCompleted),
+      completed: result.filter(p => p.isCompleted),
+    });
 
   } catch (err: any) {
     console.error("TODAY QUEUE ERROR:", err);

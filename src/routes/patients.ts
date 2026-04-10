@@ -346,7 +346,7 @@ router.post('/save-prescription', authenticate, async (req: any, res: any) => {
 });
 
 // ─────────────────────────────────────────────
-// 7. TODAY'S QUEUE (Only patients of today with vitals/symptoms)
+// 7. TODAY'S QUEUE (deduped — one row per patient)
 // ─────────────────────────────────────────────
 router.get('/today-queue', authenticate, async (req, res) => {
   const today = new Intl.DateTimeFormat('en-CA', {
@@ -355,6 +355,7 @@ router.get('/today-queue', authenticate, async (req, res) => {
   }).format(new Date());
 
   try {
+    // Step 1: get today's patients (no join — no duplicates)
     const patients = await db
       .select({
         id: all_entries.id,
@@ -363,18 +364,51 @@ router.get('/today-queue', authenticate, async (req, res) => {
         lastName: all_entries.lastName,
         age: all_entries.age,
         gender: all_entries.gender,
-        symptoms: vitals.symptoms,
         vitalsRecorded: all_entries.vitalsRecorded,
+        tokenTime: all_entries.tokenTime,
       })
       .from(all_entries)
-      .leftJoin(vitals, eq(vitals.patient_id, all_entries.id))
       .where(eq(all_entries.tokenDate, today))
       .orderBy(desc(all_entries.tokenTime));
 
-    res.json({
-      success: true,
-      patients: patients || [],
-    });
+    if (patients.length === 0) {
+      return res.json({ success: true, patients: [] });
+    }
+
+    // Step 2: for each patient, get only their latest vitals (for symptoms)
+    const patientIds = patients.map(p => p.id);
+
+    const latestVitals = await db
+      .select({
+        patient_id: vitals.patient_id,
+        symptoms: vitals.symptoms,
+      })
+      .from(vitals)
+      .where(sql`${vitals.patient_id} = ANY(ARRAY[${sql.join(patientIds.map(id => sql`${id}::uuid`), sql`, `)}])`)
+      .orderBy(desc(vitals.createdDate), desc(vitals.createdTime));
+
+    // Step 3: keep only the latest vitals per patient (first match wins due to ordering)
+    const vitalsMap = new Map<string, string | null>();
+    for (const v of latestVitals) {
+      if (!vitalsMap.has(v.patient_id)) {
+        vitalsMap.set(v.patient_id, v.symptoms);
+      }
+    }
+
+    // Step 4: merge
+    const result = patients.map(p => ({
+      id: p.id,
+      token: p.token,
+      firstName: p.firstName,
+      lastName: p.lastName,
+      age: p.age,
+      gender: p.gender,
+      vitalsRecorded: p.vitalsRecorded,
+      symptoms: vitalsMap.get(p.id) ?? null,
+    }));
+
+    res.json({ success: true, patients: result });
+
   } catch (err: any) {
     console.error("TODAY QUEUE ERROR:", err);
     res.status(500).json({ error: "Failed to load today's queue" });

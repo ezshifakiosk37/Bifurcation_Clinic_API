@@ -273,7 +273,7 @@ router.get('/today-stats', authenticate, async (req, res) => {
 const [stats] = await db
       .select({
         totalPatients: sql<number>`count(distinct ${all_entries.id})`,
-        inQueue: sql<number>`count(distinct ${all_entries.id}) filter (where ${all_entries.vitalsRecorded} = true)`,
+        inQueue: sql<number>`count(distinct ${all_entries.id}) filter (where ${all_entries.vitalsRecorded} = true and ${prescriptions.id} is null)`,
         completed: sql<number>`count(distinct ${prescriptions.patient_id})`,
       })
       .from(all_entries)

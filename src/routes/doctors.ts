@@ -1,346 +1,247 @@
-// // routes/doctors.ts
-// import { Router } from 'express';
-// import { db } from '../db';
-// import { 
-//   all_entries, 
-//   vitals, 
-//   doctors, 
-//   prescriptions, 
-//   prescription_medicines 
-// } from '../db/schema';
+// routes/doctors.ts
+import { Router,Request,Response } from 'express';
+import { db } from '../db';
+import { doctors } from '../db/schema';
+import { eq } from 'drizzle-orm';
+import jwt from 'jsonwebtoken';
+import path from 'path';
+import fs from 'fs';
+import fileUpload from 'express-fileupload';   // ← Added
 
-// import { eq, and, desc, sql } from 'drizzle-orm';
-// import { authenticate } from '../middleware/auth';
-// import bcrypt from 'bcryptjs';
-// import jwt from 'jsonwebtoken';
+const router = Router();
 
-// const router = Router();
-// const JWT_SECRET = process.env.JWT_SECRET || 'your-very-strong-secret-key-2026-change-in-prod';
+// // ─────────────────────────────────────────────
+// // FILE UPLOAD SETUP (replaces multer)
+// // ─────────────────────────────────────────────
+// router.use(fileUpload({
+//   createParentPath: true,        // auto create folders
+//   limits: { fileSize: 5 * 1024 * 1024 }, // 5MB
+//   abortOnLimit: true,
+//   useTempFiles: false,
+// }));
 
-// // ====================== HELPER: Get Current Date & Time (Pakistan Time) ======================
-// const getNow = () => {
-//   const now = new Date();
+// ─────────────────────────────────────────────
+// HELPER: doc authenticate middleware
+// ─────────────────────────────────────────────
+export const authenticateDoctor = (req: any, res: any, next: any) => {
+  const authHeader = req.headers.authorization;
+  if (!authHeader?.startsWith('Bearer ')) {
+    return res.status(401).json({ error: 'No token provided' });
+  }
+  const token = authHeader.split(' ')[1];
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET!) as any;
+    req.doctor = decoded;
+    next();
+  } catch {
+    return res.status(401).json({ error: 'Invalid or expired token' });
+  }
+};
 
-//   const pktDate = new Intl.DateTimeFormat('en-CA', {
-//     timeZone: 'Asia/Karachi',
-//     year: 'numeric',
-//     month: '2-digit',
-//     day: '2-digit',
-//   }).format(now);
+// ─────────────────────────────────────────────
+// DATE/TIME HELPER
+// ─────────────────────────────────────────────
+const getNow = () => {
+  const now = new Date();
+  const date = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Karachi',
+    year: 'numeric', month: '2-digit', day: '2-digit',
+  }).format(now);
+  const time = new Intl.DateTimeFormat('en-GB', {
+    timeZone: 'Asia/Karachi',
+    hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false,
+  }).format(now);
+  return { date, time };
+};
 
-//   const pktTime = new Intl.DateTimeFormat('en-GB', {
-//     timeZone: 'Asia/Karachi',
-//     hour: '2-digit',
-//     minute: '2-digit',
-//     second: '2-digit',
-//     hour12: false,
-//   }).format(now);
+// ─────────────────────────────────────────────
+// 1. REGISTER DOCTOR
+// POST /api/doctors/register
+// ─────────────────────────────────────────────
+router.post('/register', async (req: Request, res: Response) => {
+  const {
+    title, firstName, lastName, email, password,
+    phone, gender, experience, city,
+    specializations, qualifications,
+  } = req.body;
 
-//   return { date: pktDate, time: pktTime };
-// };
+  if (!title || !firstName || !lastName || !email || !password) {
+    return res.status(400).json({ error: 'Required fields missing' });
+  }
 
-// // ====================== 1. REGISTER DOCTOR (PUBLIC) ======================
-// router.post('/register', async (req, res) => {
-//   const { title, firstName, lastName, email, password, phone, gender, specializations, qualifications, experience, city, photo } = req.body;
+  try {
+    // Check duplicate email
+    const [existing] = await db.select({ id: doctors.id })
+      .from(doctors)
+      .where(eq(doctors.email, email))
+      .limit(1);
 
-//   try {
-//     const existing = await db.select().from(doctors).where(eq(doctors.email, email)).limit(1);
-//     if (existing.length > 0) {
-//       return res.status(409).json({ success: false, error: "Email already registered" });
-//     }
+    if (existing) {
+      return res.status(409).json({ error: 'Email already registered' });
+    }
 
-//     // const hashedPassword = await bcrypt.hash(password, 10);
+    const { date, time } = getNow();
 
-//     await db.insert(doctors).values({
-//       title: title || 'Dr.',
-//       firstName,
-//       lastName,
-//       email,
-//       password,
-//       phone: phone || null,
-//       gender: gender || null,
-//       photo: photo || null,
-//       specializations: specializations || [],
-//       qualifications: qualifications || [],
-//       experience: experience || 0,
-//       city: city || null,
-//     });
+    // Handle photo upload (replaces multer)
+    let photoPath: string | null = null;
+    if (req.files?.photo) {
+      const photo = req.files.photo as fileUpload.UploadedFile;
+      
+      const dir = 'uploads/doctors';
+      if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
 
-//     res.status(201).json({ 
-//       success: true, 
-//       message: "Doctor registered successfully. Please login." 
-//     });
-//   } catch (err: any) {
-//     console.error(err);
-//     res.status(500).json({ success: false, error: err.message });
-//   }
-// });
+      const unique = `${Date.now()}-${Math.round(Math.random() * 1e9)}`;
+      const fileName = `${unique}${path.extname(photo.name)}`;
+      const fullPath = path.join(dir, fileName);
 
-// // ====================== 2. LOGIN DOCTOR (PUBLIC) ======================
-// router.post('/login', async (req, res) => {
-//   const { email, password } = req.body;
+      await photo.mv(fullPath);   // moves the file
+      photoPath = `/uploads/doctors/${fileName}`;
+    }
 
-//   try {
-//     const [doctor] = await db.select().from(doctors).where(eq(doctors.email, email)).limit(1);
-//     if (!doctor) return res.status(401).json({ success: false, error: "Invalid credentials" });
+    const safeSpecs = (() => {
+      try { return JSON.parse(specializations); } catch { return []; }
+    })();
+    const safeQuals = (() => {
+      try { return JSON.parse(qualifications); } catch { return []; }
+    })();
 
-//     const isMatch = await bcrypt.compare(password, doctor.password);
-//     if (!isMatch) return res.status(401).json({ success: false, error: "Invalid credentials" });
+    const [newDoctor] = await db.insert(doctors).values({
+      title,
+      firstName,
+      lastName,
+      email,
+      password,
+      phone: phone || null,
+      gender: gender || null,
+      photo: photoPath,
+      specializations: safeSpecs,
+      qualifications: safeQuals,
+      experience: parseInt(experience) || 0,
+      city: city || null,
+      createdDate: date,
+      createdTime: time,
+      updatedDate: date,
+      updatedTime: time,
+    }).returning();
 
-//     const token = jwt.sign(
-//       { 
-//         userId: doctor.id,     // ← Changed here
-//         email: doctor.email 
-//       },
-//       JWT_SECRET,
-//       { expiresIn: '7d' }
-//     );
+    const token = jwt.sign(
+      { doctorId: newDoctor.id, email: newDoctor.email },
+      process.env.JWT_SECRET!,
+      { expiresIn: '30d' }
+    );
 
-//     res.json({
-//       success: true,
-//       token,
-//       doctor: { ...doctor, password: undefined }
-//     });
-//   } catch (err: any) {
-//     res.status(500).json({ success: false, error: err.message });
-//   }
-// });
+    res.status(201).json({
+      success: true,
+      token,
+      doctor: {
+        id: newDoctor.id,
+        title: newDoctor.title,
+        firstName: newDoctor.firstName,
+        lastName: newDoctor.lastName,
+        email: newDoctor.email,
+        phone: newDoctor.phone,
+        gender: newDoctor.gender,
+        photo: newDoctor.photo,
+        specializations: newDoctor.specializations,
+        qualifications: newDoctor.qualifications,
+        experience: newDoctor.experience,
+        city: newDoctor.city,
+      },
+    });
 
-// // ====================== 3. PROTECTED ROUTES ======================
+  } catch (err: any) {
+    console.error('REGISTER ERROR:', err);
+    res.status(500).json({ error: 'Registration failed', details: err.message });
+  }
+});
 
-// // Get Doctor Profile
-// router.get('/profile', authenticate, async (req: any, res) => {
-//   try {
-//     const [doctor] = await db.select().from(doctors)
-//       .where(eq(doctors.id, req.user.doctorId))
-//       .limit(1);
+// ─────────────────────────────────────────────
+// 2. UPDATE DOCTOR PROFILE (unchanged)
+// ─────────────────────────────────────────────
+router.put('/update/:id', authenticateDoctor, async (req: any, res: any) => {
+  const { id } = req.params;
 
-//     if (!doctor) return res.status(404).json({ success: false, error: "Doctor not found" });
+  if (req.doctor.doctorId !== id) {
+    return res.status(403).json({ error: 'Forbidden' });
+  }
 
-//     res.json({ success: true, doctor: { ...doctor, password: undefined } });
-//   } catch (err: any) {
-//     res.status(500).json({ success: false, error: err.message });
-//   }
-// });
+  const {
+    title, firstName, lastName, email,
+    password, phone, gender,
+    specializations, qualifications,
+    experience, city,
+  } = req.body;
 
-// // Update Doctor Profile
-// router.put('/profile', authenticate, async (req: any, res) => {
-//   const doctorId = req.user.doctorId;
-//   const { title, firstName, lastName, phone, gender, specializations, qualifications, experience, city, photo } = req.body;
+  try {
+    const { date, time } = getNow();
 
-//   try {
-//     const [updated] = await db.update(doctors)
-//       .set({
-//         title,
-//         firstName,
-//         lastName,
-//         phone,
-//         gender,
-//         specializations,
-//         qualifications,
-//         experience: experience !== undefined ? experience : undefined,
-//         city,
-//         photo,
-//         updatedDate: getNow().date,
-//         updatedTime: getNow().time,
-//       })
-//       .where(eq(doctors.id, doctorId))
-//       .returning();
+    const [updated] = await db.update(doctors)
+      .set({
+        ...(title       && { title }),
+        ...(firstName   && { firstName }),
+        ...(lastName    && { lastName }),
+        ...(email       && { email }),
+        ...(password    && { password }),
+        ...(phone       && { phone }),
+        ...(gender      && { gender }),
+        ...(specializations && { specializations }),
+        ...(qualifications  && { qualifications }),
+        ...(experience !== undefined && { experience: parseInt(experience) || 0 }),
+        ...(city        && { city }),
+        updatedDate: date,
+        updatedTime: time,
+      })
+      .where(eq(doctors.id, id))
+      .returning();
 
-//     res.json({ success: true, doctor: { ...updated, password: undefined } });
-//   } catch (err: any) {
-//     res.status(500).json({ success: false, error: err.message });
-//   }
-// });
+    if (!updated) {
+      return res.status(404).json({ error: 'Doctor not found' });
+    }
 
-// // ====================== DASHBOARD STATS ======================
-// router.get('/stats', authenticate, async (req: any, res) => {
-//   const today = new Intl.DateTimeFormat('en-CA', {
-//     timeZone: 'Asia/Karachi',
-//     year: 'numeric', 
-//     month: '2-digit', 
-//     day: '2-digit'
-//   }).format(new Date());
+    res.json({
+      success: true,
+      doctor: {
+        id: updated.id,
+        title: updated.title,
+        firstName: updated.firstName,
+        lastName: updated.lastName,
+        email: updated.email,
+        phone: updated.phone,
+        gender: updated.gender,
+        photo: updated.photo,
+        specializations: updated.specializations,
+        qualifications: updated.qualifications,
+        experience: updated.experience,
+        city: updated.city,
+      },
+    });
 
-//   try {
-//     const totalPatients = await db
-//       .select({ count: sql<number>`count(*)` })
-//       .from(all_entries)
-//       .where(eq(all_entries.tokenDate, today));
+  } catch (err: any) {
+    console.error('UPDATE ERROR:', err);
+    res.status(500).json({ error: 'Update failed', details: err.message });
+  }
+});
 
-//     const inQueue = await db
-//       .select({ count: sql<number>`count(*)` })
-//       .from(all_entries)
-//       .where(
-//         and(
-//           eq(all_entries.tokenDate, today),
-//           sql`${all_entries.vitalsRecorded} = false`
-//         )
-//       );
+// ─────────────────────────────────────────────
+// 3. GET DOCTOR PROFILE (unchanged)
+// ─────────────────────────────────────────────
+router.get('/me', authenticateDoctor, async (req: any, res: any) => {
+  try {
+    const [doctor] = await db.select()
+      .from(doctors)
+      .where(eq(doctors.id, req.doctor.doctorId))
+      .limit(1);
 
-//     const completed = await db
-//       .select({ count: sql<number>`count(*)` })
-//       .from(prescriptions)
-//       .where(eq(prescriptions.prescriptionDate, today));
+    if (!doctor) return res.status(404).json({ error: 'Doctor not found' });
 
-//     res.json({
-//       success: true,
-//       data: {
-//         totalPatients: Number(totalPatients[0]?.count || 0),
-//         inQueue: Number(inQueue[0]?.count || 0),
-//         completed: Number(completed[0]?.count || 0),
-//       }
-//     });
-//   } catch (err: any) {
-//     console.error("Stats Error:", err);
-//     res.status(500).json({ success: false, error: err.message });
-//   }
-// });
+    const { password: _, ...safeDoctor } = doctor;
+    res.json({ success: true, doctor: safeDoctor });
 
-// // ====================== TODAY'S QUEUE ======================
-// router.get('/queue', authenticate, async (req: any, res) => {
-//   const today = new Intl.DateTimeFormat('en-CA', {
-//     timeZone: 'Asia/Karachi',
-//     year: 'numeric', month: '2-digit', day: '2-digit'
-//   }).format(new Date());
+  } catch (err: any) {
+    console.error('GET ME ERROR:', err);
+    res.status(500).json({ error: 'Failed to fetch profile', details: err.message });
+  }
+});
 
-//   try {
-//     const queueList = await db
-//       .select({
-//         id: all_entries.id,
-//         token: all_entries.token,
-//         firstName: all_entries.firstName,
-//         lastName: all_entries.lastName,
-//         age: all_entries.age,
-//         gender: all_entries.gender,
-//         symptoms: vitals.symptoms,
-//       })
-//       .from(all_entries)
-//       .leftJoin(vitals, and(
-//         eq(vitals.patient_id, all_entries.id),
-//         eq(vitals.createdDate, today)
-//       ))
-//       .where(
-//         and(
-//           eq(all_entries.tokenDate, today),
-//           sql`${all_entries.vitalsRecorded} = false`
-//         )
-//       )
-//       .orderBy(desc(all_entries.token));
-
-//     res.json({ success: true, queue: queueList });
-//   } catch (err: any) {
-//     console.error("Queue Error:", err);
-//     res.status(500).json({ success: false, error: err.message });
-//   }
-// });
-
-// // ====================== GET PATIENT FOR CONSULTATION ======================
-// router.get('/patient/:patientId', authenticate, async (req, res) => {
-//   const patientId = req.params.patientId as string;
-//   const today = new Intl.DateTimeFormat('en-CA', {
-//     timeZone: 'Asia/Karachi',
-//     year: 'numeric', month: '2-digit', day: '2-digit'
-//   }).format(new Date());
-
-//   try {
-//     const [patient] = await db
-//       .select()
-//       .from(all_entries)
-//       .where(eq(all_entries.id, String(patientId)))
-//       .limit(1);
-
-//     if (!patient) {
-//       return res.status(404).json({ success: false, error: "Patient not found" });
-//     }
-
-//     const [todayVitals] = await db
-//       .select()
-//       .from(vitals)
-//       .where(
-//         and(
-//           eq(vitals.patient_id, String(patientId)),
-//           eq(vitals.createdDate, today)
-//         )
-//       )
-//       .orderBy(desc(vitals.createdTime))
-//       .limit(1);
-
-//     res.json({
-//       success: true,
-//       patient,
-//       vitals: todayVitals || null,
-//     });
-//   } catch (err: any) {
-//     console.error("Patient Detail Error:", err);
-//     res.status(500).json({ success: false, error: err.message });
-//   }
-// });
-
-// // ====================== SAVE PRESCRIPTION (Supports End Session) ======================
-// router.post('/prescription', authenticate, async (req: any, res) => {
-//   const { patientId, token, diagnosis, clinicalNotes, medicines } = req.body;
-//   const doctorId = req.user.doctorId;
-
-//   if (!patientId || !doctorId || !token) {
-//     return res.status(400).json({ success: false, error: "Missing patientId, doctorId or token" });
-//   }
-
-//   const { date, time } = getNow();
-
-//   try {
-//     const [newPrescription] = await db.insert(prescriptions).values({
-//       patient_id: patientId,
-//       doctor_id: doctorId,
-//       token,
-//       prescriptionDate: date,
-//       prescriptionTime: time,
-//       diagnosis: diagnosis || "No diagnosis provided",
-//       clinicalNotes: clinicalNotes || "Session ended without notes",
-//       createdDate: date,
-//       createdTime: time,
-//     }).returning({ id: prescriptions.id });
-
-//     const prescriptionId = newPrescription.id;
-
-//     // Allow empty medicines (for "End Session" button)
-//     const medicineValues = Array.isArray(medicines) && medicines.length > 0
-//       ? medicines.map((med: any) => ({
-//           prescription_id: prescriptionId,
-//           medicineName: med.medicineName || med.name || "No medicine",
-//           morning: Boolean(med.morning),
-//           afternoon: Boolean(med.afternoon),
-//           night: Boolean(med.night),
-//           beforeMeal: Boolean(med.beforeMeal),
-//           afterMeal: Boolean(med.afterMeal ?? true),
-//         }))
-//       : [{
-//           prescription_id: prescriptionId,
-//           medicineName: "No medicine prescribed",
-//           morning: false,
-//           afternoon: false,
-//           night: false,
-//           beforeMeal: false,
-//           afterMeal: true,
-//         }];
-
-//     await db.insert(prescription_medicines).values(medicineValues);
-
-//     // Mark patient as completed
-//     await db.update(all_entries)
-//       .set({ vitalsRecorded: true })
-//       .where(eq(all_entries.id, patientId));
-
-//     res.json({
-//       success: true,
-//       prescriptionId,
-//       message: "Prescription saved successfully"
-//     });
-
-//   } catch (err: any) {
-//     console.error("Save Prescription Error:", err);
-//     res.status(500).json({ success: false, error: err.message });
-//   }
-// });
-
-// export default router;
+export default router;
+export { authenticateDoctor as docAuth };

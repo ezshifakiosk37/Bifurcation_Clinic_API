@@ -4,6 +4,7 @@ import { db } from '../db';
 import { all_entries, vitals, prescriptions, prescription_medicines } from '../db/schema';
 import { eq, desc, and, sql } from 'drizzle-orm';
 import { authenticate } from '../middleware/auth';
+import { authenticateDoctor } from './doctors';
 
 const router = Router();
 
@@ -297,8 +298,8 @@ router.get('/today-stats', authenticate, async (req, res) => {
 // ─────────────────────────────────────────────
 // 6. SAVE FULL PRESCRIPTION (when doctor ends session)
 // ─────────────────────────────────────────────
-router.post('/save-prescription', authenticate, async (req: any, res: any) => {
-  const doctorId = req.user?.userId || req.user?.doctorId; // adjust if your token has different key
+router.post('/save-prescription', authenticateDoctor, async (req: any, res: any) => {
+  const doctorId = req.doctor?.doctorId;
   const { patientId, token, diagnosis, clinicalNotes, medicines } = req.body;
 
   if (!patientId || !token) {

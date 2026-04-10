@@ -1,7 +1,7 @@
 // routes/doctors.ts
 import { Router,Request,Response } from 'express';
 import { db } from '../db';
-import { doctors } from '../db/schema';
+import { doctors,doctor_logs } from '../db/schema';
 import { eq } from 'drizzle-orm';
 import jwt from 'jsonwebtoken';
 import path from 'path';
@@ -243,5 +243,33 @@ router.get('/me', authenticateDoctor, async (req: any, res: any) => {
   }
 });
 
+// ─────────────────────────────────────────────
+// 4. DOCTOR LOGOUT WITH REASON
+// ─────────────────────────────────────────────
+router.post('/logout', authenticateDoctor, async (req: any, res: any) => {
+  const { reason } = req.body;
+  const doctorId = req.doctor.doctorId;
+
+  if (!reason) {
+    return res.status(400).json({ error: "Logout reason is required" });
+  }
+
+  const { date, time } = getNow();
+
+  try {
+    await db.insert(doctor_logs).values({
+      doctor_id: doctorId,
+      action: "logout",
+      reason: reason,
+      createdDate: date,
+      createdTime: time,
+    });
+
+    res.json({ success: true, message: "Logout reason saved" });
+  } catch (err: any) {
+    console.error("LOGOUT LOG ERROR:", err);
+    res.status(500).json({ error: "Failed to save logout reason" });
+  }
+});
 export default router;
 export { authenticateDoctor as docAuth };

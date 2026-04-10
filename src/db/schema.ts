@@ -122,3 +122,18 @@ export const prescription_medicines = pgTable("prescription_medicines", {
   dosage: text("dosage"),      // e.g. "500mg", "1 tablet"
   duration: text("duration"),  // e.g. "3 days", "1 week"
 });
+
+// ─────────────────────────────────────────────
+// 7. DOCTOR ACTIVITY LOGS (Logout Reasons)
+// ─────────────────────────────────────────────
+export const doctor_logs = pgTable("doctor_logs", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  
+  doctor_id: uuid("doctor_id").notNull().references(() => doctors.id, { onDelete: "cascade" }),
+  
+  action: text("action").notNull().default("logout"),
+  reason: text("reason").notNull(),                    // e.g. "Meal Break", "Shift Ends"
+  
+  createdDate: date("created_date").defaultNow().notNull(),
+  createdTime: time("created_time").defaultNow(),
+});

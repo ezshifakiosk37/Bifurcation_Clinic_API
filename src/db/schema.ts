@@ -74,7 +74,7 @@ export const doctors = pgTable("doctors", {
   qualifications: jsonb("qualifications").notNull().default([]),
   experience: integer("experience").default(0),
   city: text("city"),
-  user_id: uuid("user_id").notNull().references(() => users.id),
+  user_id: uuid("user_id").references(() => users.id),
   
   createdDate: date("created_date").defaultNow().notNull(),
   createdTime: time("created_time").defaultNow(),

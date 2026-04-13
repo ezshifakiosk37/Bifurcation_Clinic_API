@@ -1,7 +1,7 @@
 // routes/doctors.ts
 import { Router,Request,Response } from 'express';
 import { db } from '../db';
-import { doctors,doctor_logs } from '../db/schema';
+import { doctors,doctor_logs,users } from '../db/schema';
 import { eq } from 'drizzle-orm';
 import jwt from 'jsonwebtoken';
 import path from 'path';
@@ -59,14 +59,12 @@ const getNow = () => {
 // 1. REGISTER DOCTOR
 // POST /api/doctors/register
 // ─────────────────────────────────────────────
-router.post('/register', authenticate, async (req: any, res: Response) => {
+router.post('/register', async (req: any, res: Response) => {
   const {
     title, firstName, lastName, email, password,
     phone, gender, experience, city,
     specializations, qualifications,
   } = req.body;
-
-  const staffUserId = req.user.userId; // extracted from staff JWT token automatically
 
   if (!title || !firstName || !lastName || !email || !password) {
     return res.status(400).json({ error: 'Required fields missing' });
@@ -85,7 +83,7 @@ router.post('/register', authenticate, async (req: any, res: Response) => {
 
     const { date, time } = getNow();
 
-    // Handle photo upload (replaces multer)
+    // Handle photo upload
     let photoPath: string | null = null;
     if (req.files?.photo) {
       const photo = req.files.photo as fileUpload.UploadedFile;
@@ -97,17 +95,14 @@ router.post('/register', authenticate, async (req: any, res: Response) => {
       const fileName = `${unique}${path.extname(photo.name)}`;
       const fullPath = path.join(dir, fileName);
 
-      await photo.mv(fullPath);   // moves the file
+      await photo.mv(fullPath);
       photoPath = `/uploads/doctors/${fileName}`;
     }
 
-    const safeSpecs = (() => {
-      try { return JSON.parse(specializations); } catch { return []; }
-    })();
-    const safeQuals = (() => {
-      try { return JSON.parse(qualifications); } catch { return []; }
-    })();
+    const safeSpecs = (() => { try { return JSON.parse(specializations); } catch { return []; } })();
+    const safeQuals = (() => { try { return JSON.parse(qualifications); } catch { return []; } })();
 
+    // === STEP 1: Create doctor first ===
     const [newDoctor] = await db.insert(doctors).values({
       title,
       firstName,
@@ -121,13 +116,27 @@ router.post('/register', authenticate, async (req: any, res: Response) => {
       qualifications: safeQuals,
       experience: parseInt(experience) || 0,
       city: city || null,
-      user_id: staffUserId,
+      // user_id will be filled in next step
       createdDate: date,
       createdTime: time,
       updatedDate: date,
       updatedTime: time,
     }).returning();
 
+    // === STEP 2: Create user entry + link foreign key (1 user → many doctors) ===
+    const [newUser] = await db.insert(users).values({
+      username: email,                                      // email as username
+      password: password,                                   // same password
+      name: `${title} ${firstName} ${lastName}`.trim(),
+      location: "Karachi",                                  // change if needed
+    }).returning({ id: users.id });
+
+    // Link the new user to this doctor (this is your foreign key connection)
+    await db.update(doctors)
+      .set({ user_id: newUser.id })
+      .where(eq(doctors.id, newDoctor.id));
+
+    // Generate token
     const token = jwt.sign(
       { doctorId: newDoctor.id, email: newDoctor.email },
       process.env.JWT_SECRET!,
@@ -158,7 +167,6 @@ router.post('/register', authenticate, async (req: any, res: Response) => {
     res.status(500).json({ error: 'Registration failed', details: err.message });
   }
 });
-
 // ─────────────────────────────────────────────
 // 2. UPDATE DOCTOR PROFILE (unchanged)
 // ─────────────────────────────────────────────

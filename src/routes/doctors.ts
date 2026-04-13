@@ -59,14 +59,14 @@ const getNow = () => {
 // 1. REGISTER DOCTOR
 // POST /api/doctors/register
 // ─────────────────────────────────────────────
-router.post('/register', authenticate, async (req: any, res: Response) => {
+router.post('/register', authenticate, async (req: any, res: Response) => {   // ← authenticate added back
   const {
     title, firstName, lastName, email, password,
     phone, gender, experience, city,
     specializations, qualifications,
   } = req.body;
 
-  const staffUserId = req.user.userId;   // ← This is the currently logged-in clinic user
+  const staffUserId = req.user.userId;   // ← This is your logged-in clinic user ID
 
   if (!title || !firstName || !lastName || !email || !password) {
     return res.status(400).json({ error: 'Required fields missing' });
@@ -89,7 +89,6 @@ router.post('/register', authenticate, async (req: any, res: Response) => {
     let photoPath: string | null = null;
     if (req.files?.photo) {
       const photo = req.files.photo as fileUpload.UploadedFile;
-      
       const dir = 'uploads/doctors';
       if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
 
@@ -104,7 +103,6 @@ router.post('/register', authenticate, async (req: any, res: Response) => {
     const safeSpecs = (() => { try { return JSON.parse(specializations); } catch { return []; } })();
     const safeQuals = (() => { try { return JSON.parse(qualifications); } catch { return []; } })();
 
-    // === Create doctor and link to the CURRENT logged-in clinic user ===
     const [newDoctor] = await db.insert(doctors).values({
       title,
       firstName,
@@ -118,7 +116,7 @@ router.post('/register', authenticate, async (req: any, res: Response) => {
       qualifications: safeQuals,
       experience: parseInt(experience) || 0,
       city: city || null,
-      user_id: staffUserId,           // ← This creates the 1-to-many relation
+      user_id: staffUserId,                    // ← Foreign key link (1 user → many doctors)
       createdDate: date,
       createdTime: time,
       updatedDate: date,
@@ -155,6 +153,7 @@ router.post('/register', authenticate, async (req: any, res: Response) => {
     res.status(500).json({ error: 'Registration failed', details: err.message });
   }
 });
+
 // ─────────────────────────────────────────────
 // 2. UPDATE DOCTOR PROFILE (unchanged)
 // ─────────────────────────────────────────────

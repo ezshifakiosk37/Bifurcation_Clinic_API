@@ -7,6 +7,7 @@ import jwt from 'jsonwebtoken';
 import path from 'path';
 import fs from 'fs';
 import fileUpload from 'express-fileupload';   // ← Added
+import { authenticate } from '../middleware/auth';
 
 const router = Router();
 
@@ -58,12 +59,14 @@ const getNow = () => {
 // 1. REGISTER DOCTOR
 // POST /api/doctors/register
 // ─────────────────────────────────────────────
-router.post('/register', async (req: Request, res: Response) => {
+router.post('/register', authenticate, async (req: any, res: Response) => {
   const {
     title, firstName, lastName, email, password,
     phone, gender, experience, city,
     specializations, qualifications,
   } = req.body;
+
+  const staffUserId = req.user.userId; // extracted from staff JWT token automatically
 
   if (!title || !firstName || !lastName || !email || !password) {
     return res.status(400).json({ error: 'Required fields missing' });
@@ -118,6 +121,7 @@ router.post('/register', async (req: Request, res: Response) => {
       qualifications: safeQuals,
       experience: parseInt(experience) || 0,
       city: city || null,
+      user_id: staffUserId,
       createdDate: date,
       createdTime: time,
       updatedDate: date,

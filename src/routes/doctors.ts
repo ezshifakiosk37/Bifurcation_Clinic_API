@@ -99,7 +99,7 @@ router.post('/register', authenticate, async (req: any, res: Response) => {   //
       await photo.mv(fullPath);
       photoPath = `/uploads/doctors/${fileName}`;
     }
-
+    // console.log(photoPath);
     const safeSpecs = (() => { try { return JSON.parse(specializations); } catch { return []; } })();
     const safeQuals = (() => { try { return JSON.parse(qualifications); } catch { return []; } })();
 
@@ -111,7 +111,7 @@ router.post('/register', authenticate, async (req: any, res: Response) => {   //
       password,
       phone: phone || null,
       gender: gender || null,
-      photo: photoPath,
+      // photo: photoPath,
       specializations: safeSpecs,
       qualifications: safeQuals,
       experience: parseInt(experience) || 0,

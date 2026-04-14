@@ -235,8 +235,8 @@ router.get('/me', authenticateDoctor, async (req: any, res: any) => {
 
     if (!doctor) return res.status(404).json({ error: 'Doctor not found' });
 
-    const { password: _, ...safeDoctor } = doctor;
-    res.json({ success: true, doctor: safeDoctor });
+    // const { password: _, ...safeDoctor } = doctor;
+     res.json({ success: true, doctor });
 
   } catch (err: any) {
     console.error('GET ME ERROR:', err);

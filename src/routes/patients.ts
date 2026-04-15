@@ -49,11 +49,11 @@ const getNextToken = async () => {
       .orderBy(desc(all_entries.token))
       .limit(1);
 
-    if (lastEntry.length === 0 || !lastEntry[0].token) return "0001";
+    if (lastEntry.length === 0 || !lastEntry[0].token) return "1";
 
     const lastTokenNumber = parseInt(lastEntry[0].token);
     const nextTokenNumber = isNaN(lastTokenNumber) ? 1 : lastTokenNumber + 1;
-    return nextTokenNumber.toString().padStart(4, '0');
+    return nextTokenNumber.toString();
   } catch (error) {
     console.error("TOKEN GENERATION ERROR:", error);
     return "0001";

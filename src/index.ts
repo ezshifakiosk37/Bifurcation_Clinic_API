@@ -5,6 +5,7 @@ import fileUpload from 'express-fileupload';
 import authRoutes from './routes/auth';
 import patientRoutes from './routes/patients';
 import vitalRoutes from './routes/vitals';
+import medicineRoutes from './routes/medicines'
 import { authenticate } from './middleware/auth';
 import docAuthRouter from './routes/docAuth'; //doc login
 import doctorRoutes from './routes/doctors'; //doctor.ts
@@ -49,9 +50,7 @@ app.use('/api/doctors', doctorRoutes); //doctor.ts
 app.use('/api/patients', authenticate, patientRoutes);
 app.use('/api/vitals', authenticate, vitalRoutes);
 app.use('/api/doc-auth', docAuthRouter);    //Doctor login
-// 2. Mount the medicines route
-// Note: Using 'authenticate' so only logged-in staff can see inventory
-app.use('/api/medicines', authenticate, medicine_inventry);
+app.use('/api/medicines', authenticate, medicineRoutes);
 // 6. Global Error Handler
 // Prevents the server from crashing and leaking stack traces to users
 app.use((err: any, req: any, res: any, next: any) => {

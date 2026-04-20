@@ -1,6 +1,7 @@
 // src/db/schema.ts 
 import { pgTable, text, timestamp, uuid, varchar, integer, date, time , boolean,jsonb} from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
+import { serial } from "drizzle-orm/pg-core";
 
 // staff/users 
 export const users = pgTable("users", {
@@ -138,3 +139,13 @@ export const doctor_logs = pgTable("doctor_logs", {
   createdDate: date("created_date").defaultNow().notNull(),
   createdTime: time("created_time").defaultNow(),
 });
+
+export const medicine_inventry = pgTable("medicines_inventry", {
+  id: serial("id").primaryKey(),
+  name: text("name"),
+  row: integer("row").notNull().default(1),
+  column: integer("column").notNull().default(1),
+  quantity: integer("quantity").notNull().default(1),
+  createdDate: date("created_date").defaultNow().notNull(),
+  createdTime: time("created_time").defaultNow(),
+})

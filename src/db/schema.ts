@@ -98,6 +98,7 @@ export const prescriptions = pgTable("prescriptions", {
   prescriptionTime: time("prescription_time").defaultNow(),
 
   diagnosis: text("diagnosis"),
+  labTest:text ("labTest"),
   clinicalNotes: text("clinical_notes"),
 
   createdDate: date("created_date").defaultNow().notNull(),

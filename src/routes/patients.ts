@@ -300,7 +300,7 @@ const [stats] = await db
 // ─────────────────────────────────────────────
 router.post('/save-prescription', authenticateDoctor, async (req: any, res: any) => {
   const doctorId = req.doctor?.doctorId;
-  const { patientId, token, diagnosis, clinicalNotes, medicines } = req.body;
+  const { patientId, token, diagnosis, labTest, clinicalNotes, medicines } = req.body;
 
   if (!patientId || !token) {
     return res.status(400).json({ error: "Patient ID and Token are required" });
@@ -315,6 +315,7 @@ router.post('/save-prescription', authenticateDoctor, async (req: any, res: any)
       doctor_id: doctorId,
       token,
       diagnosis: diagnosis || null,
+      labTest: labTest || null,
       clinicalNotes: clinicalNotes || null,
       prescriptionDate: createdDate,
       prescriptionTime: createdTime,

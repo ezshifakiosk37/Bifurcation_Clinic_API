@@ -436,7 +436,7 @@ router.get('/today-queue', authenticate, async (req, res) => {
 
     res.json({
       success: true,
-      patients: result.filter(p => !p.isCompleted),
+      patients: result.filter(p => !p.isCompleted && p.vitalsRecorded),
       completed: result.filter(p => p.isCompleted),
     });
 

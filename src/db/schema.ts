@@ -3,7 +3,7 @@ import { pgTable, text, timestamp, uuid, varchar, integer, date, time , boolean,
 import { relations } from "drizzle-orm";
 import { serial } from "drizzle-orm/pg-core";
 
-// staff/users 
+// staff/users/clinic
 export const users = pgTable("users", {
     id: uuid("id").primaryKey().defaultRandom(),
     username: varchar("username", { length: 50 }).notNull().unique(),

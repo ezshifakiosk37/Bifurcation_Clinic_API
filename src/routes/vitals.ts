@@ -28,7 +28,7 @@ router.post('/save', authenticate, async (req, res) => {
     const createdDate = pktDate;
     const createdTime = pktTime;
 
-    const [inserted] = await db.insert(vitals).values({
+const [inserted] = await db.insert(vitals).values({
       patient_id: patientId,
       token: patient?.token ?? null,
       createdDate,
@@ -41,9 +41,10 @@ router.post('/save', authenticate, async (req, res) => {
       Weight: vData.Weight,
       Height: vData.Height,
       symptoms: vData.symptoms || null,
+      callStatus: "idle",
     }).returning();
 
-    res.json({ success: true, id: inserted.id });
+    res.json({ success: true, vitalsId: inserted.id });
   } catch (err) {
     console.error("Save Error:", err);
     res.status(500).json({ error: "Failed to save vitals" });
@@ -106,5 +107,7 @@ router.get('/history-by-phone/:phone', authenticate, async (req, res) => {
     res.status(500).json({ success: false, error: "Failed to fetch history" });
   }
 });
+
+
 
 export default router;

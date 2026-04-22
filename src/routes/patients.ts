@@ -45,8 +45,8 @@ const getNextToken = async () => {
     const lastEntry = await db
       .select({ token: all_entries.token })
       .from(all_entries)
-      .where(eq(all_entries.tokenDate, today))   // use tokenDate here too
-      .orderBy(desc(all_entries.token))
+      .where(eq(all_entries.tokenDate, today))
+      .orderBy(desc(sql`cast(${all_entries.token} as integer)`))  // ← numeric sort
       .limit(1);
 
     if (lastEntry.length === 0 || !lastEntry[0].token) return "1";
@@ -204,7 +204,7 @@ router.get('/verify-token/:token', authenticate, async (req, res) => {
       return res.status(404).json({ success: false, error: "Invalid or expired token for today" });
     }
 
-if (patient.vitalsRecorded && patient.tokenDate === today) {
+    if (patient.vitalsRecorded && patient.tokenDate === today) {
       return res.status(409).json({ success: false, error: "Token already used today" });
     }
 
@@ -270,7 +270,7 @@ router.get('/today-stats', authenticate, async (req, res) => {
   }).format(new Date());
 
   try {
-const [stats] = await db
+    const [stats] = await db
       .select({
         totalPatients: sql<number>`count(distinct ${all_entries.id})`,
         inQueue: sql<number>`count(distinct ${all_entries.id}) filter (where ${all_entries.vitalsRecorded} = true and ${prescriptions.id} is null)`,
@@ -357,7 +357,7 @@ router.get('/today-queue', authenticate, async (req, res) => {
   }).format(new Date());
 
   try {
-// Step 1: get today's patients with completion status
+    // Step 1: get today's patients with completion status
     const patients = await db
       .select({
         id: all_entries.id,
@@ -385,7 +385,7 @@ router.get('/today-queue', authenticate, async (req, res) => {
       return res.json({ success: true, patients: [] });
     }
 
-// Step 2: for each patient, get only their latest vitals
+    // Step 2: for each patient, get only their latest vitals
     const patientIds = patients.map(p => p.id);
 
     const latestVitals = await db
@@ -412,7 +412,7 @@ router.get('/today-queue', authenticate, async (req, res) => {
       }
     }
 
-// Step 4: merge with nested vitals object + completion flag
+    // Step 4: merge with nested vitals object + completion flag
     const result = patients.map(p => {
       const v = vitalsMap.get(p.id);
       return {
@@ -434,7 +434,7 @@ router.get('/today-queue', authenticate, async (req, res) => {
       };
     });
 
-res.json({
+    res.json({
       success: true,
       patients: result.filter(p => !p.isCompleted),
       completed: result.filter(p => p.isCompleted),

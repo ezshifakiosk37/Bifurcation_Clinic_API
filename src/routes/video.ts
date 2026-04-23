@@ -11,7 +11,7 @@ const DAILY_API_URL = process.env.DAILY_API_URL!;
 // Create a Daily.co room for a consultation
 router.post("/create-room", async (req: Request, res: Response) => {
     try {
-        const { consultationId } = req.body;
+        const { vitalsId } = req.body;
 
         const response = await fetch(`${DAILY_API_URL}/rooms`, {
             method: "POST",
@@ -20,7 +20,7 @@ router.post("/create-room", async (req: Request, res: Response) => {
                 "Content-Type": "application/json",
             },
             body: JSON.stringify({
-                name: `consult-${consultationId}-${Date.now()}`,
+                name: `consult-${vitalsId}-${Date.now()}`,
                 properties: {
                     exp: Math.floor(Date.now() / 1000) + 3600,
                     enable_chat: true,
@@ -33,7 +33,6 @@ router.post("/create-room", async (req: Request, res: Response) => {
         const data = await response.json();
 
         // Save room info to vitals row and mark as waiting
-        const { vitalsId } = req.body;
         if (vitalsId) {
             await db.update(vitals)
                 .set({ roomUrl: data.url, roomName: data.name, callStatus: "waiting" })

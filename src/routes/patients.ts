@@ -247,13 +247,14 @@ router.post('/save-vitals', authenticate, async (req: any, res: any) => {
       Weight: v.Weight?.toString(),
       Height: v.Height?.toString(),
       symptoms: v.symptoms ? v.symptoms.toString() : null,
+      callStatus: "idle",
     }).returning();
 
     await db.update(all_entries)
       .set({ vitalsRecorded: true })
       .where(eq(all_entries.id, patientId));
 
-    res.status(201).json({ success: true, data: newVital[0] });
+    res.status(201).json({ success: true, vitalsId: newVital[0].id, data: newVital[0] });
   } catch (err: any) {
     console.error("VITALS SAVE ERROR:", err);
     res.status(500).json({ error: "Vitals save failed", details: err.message });

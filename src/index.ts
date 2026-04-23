@@ -33,7 +33,7 @@ const PORT = process.env.PORT || 5000;
 // 3. Production Middleware
 app.use(cors({
   origin: '*', // For Electron apps, '*' is often necessary, but you can restrict this later
-  methods: ['GET', 'POST', 'PUT', 'DELETE'],
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'],
   allowedHeaders: ['Content-Type', 'Authorization']
 }));
 
@@ -53,6 +53,7 @@ app.use('/api/vitals', authenticate, vitalRoutes);
 app.use('/api/doc-auth', docAuthRouter);    //Doctor login
 app.use('/api/medicines', authenticate, medicineRoutes);
 app.use("/api/video", videoRoutes);
+
 // 6. Global Error Handler
 // Prevents the server from crashing and leaking stack traces to users
 app.use((err: any, req: any, res: any, next: any) => {

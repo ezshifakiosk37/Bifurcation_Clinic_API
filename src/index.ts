@@ -10,6 +10,7 @@ import { authenticate } from './middleware/auth';
 import docAuthRouter from './routes/docAuth'; //doc login
 import doctorRoutes from './routes/doctors'; //doctor.ts
 import videoRoutes from "./routes/video";
+import agoraVideoRoutes from "./routes/agoravideo";
 
 // 1. Load Environment Variables early
 dotenv.config();
@@ -53,6 +54,7 @@ app.use('/api/vitals', authenticate, vitalRoutes);
 app.use('/api/doc-auth', docAuthRouter);    //Doctor login
 app.use('/api/medicines', authenticate, medicineRoutes);
 app.use("/api/video", videoRoutes);
+app.use("/api/agoravideo", agoraVideoRoutes);
 
 // 6. Global Error Handler
 // Prevents the server from crashing and leaking stack traces to users

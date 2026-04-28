@@ -40,6 +40,9 @@ app.use(cors({
   credentials: true
 }));
 
+// Add this line to explicitly handle pre-flight requests
+app.options('*', cors());
+
 app.use(express.json());
 
 // 4. Health Check Route

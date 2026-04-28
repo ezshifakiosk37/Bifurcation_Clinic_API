@@ -37,6 +37,7 @@ export const all_entries = pgTable("all_entries", {
   medicineHistory: text("medicineHistory").default("null"),
   allergies: text("allergies").default("null"),
   vitalsRecorded: boolean("vitals_recorded").default(false).notNull(),
+  fcmToken: text("fcm_token"),
   token: varchar("token", { length: 10 }),
   tokenDate: date("token_date"),           // date of latest check-in
   tokenTime: time("token_time"),            // time of last check-in
@@ -88,6 +89,8 @@ export const doctors = pgTable("doctors", {
   createdTime: time("created_time").defaultNow(),
   updatedDate: date("updated_date").defaultNow().notNull(),
   updatedTime: time("updated_time").defaultNow(),
+
+  fcmToken: text("fcm_token"),
 });
 
 // ─────────────────────────────────────────────

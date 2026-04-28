@@ -12,6 +12,10 @@ node_modules/
 dist/
 build/
 
+# Firebase Secret Key
+ezbifurcation-firebase-adminsdk-fbsvc-3f70aad2de.json
+*.json
+
 # --- Logs ---
 npm-debug.log*
 yarn-debug.log*

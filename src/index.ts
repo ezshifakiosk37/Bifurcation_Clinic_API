@@ -34,14 +34,10 @@ const PORT = process.env.PORT || 5000;
 
 // 3. Production Middleware
 app.use(cors({
-  origin: '*', // Better than '*' for security
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
-  credentials: true
+  origin: '*', // For Electron apps, '*' is often necessary, but you can restrict this later
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'],
+  allowedHeaders: ['Content-Type', 'Authorization']
 }));
-
-// Add this line to explicitly handle pre-flight requests
-app.options('*', cors());
 
 app.use(express.json());
 

@@ -272,5 +272,43 @@ router.post('/logout', authenticateDoctor, async (req: any, res: any) => {
     res.status(500).json({ error: "Failed to save logout reason" });
   }
 });
+
+// GET /api/doctors/assigned-doctor/:userId
+router.get('/assigned-doctor/:userId', async (req: any, res: any) => {
+  const { userId } = req.params;
+
+  try {
+    // 1. Find the doctor that references this Kiosk's userId
+    // Based on your schema: doctors.user_id -> users.id
+    const [doctor] = await db.select()
+      .from(doctors)
+      .where(eq(doctors.user_id, userId)) // We look for the link here
+      .limit(1);
+
+    if (!doctor) {
+      return res.status(404).json({ 
+        success: false,
+        error: 'No doctor is currently assigned to this kiosk account.' 
+      });
+    }
+
+    // 2. Return the doctor details
+    // I noticed your schema uses firstName and lastName separately
+    res.json({ 
+      success: true, 
+      doctorId: doctor.id, 
+      doctorName: `Dr. ${doctor.firstName} ${doctor.lastName}`,
+      fcmToken: !!doctor.fcmToken 
+    });
+
+  } catch (err: any) {
+    console.error('FETCH ASSIGNED DOCTOR ERROR:', err);
+    res.status(500).json({ 
+      error: 'Failed to fetch assigned doctor', 
+      details: err.message 
+    });
+  }
+});
+
 export default router;
 export { authenticateDoctor as docAuth };

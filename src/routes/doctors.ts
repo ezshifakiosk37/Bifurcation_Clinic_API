@@ -1,14 +1,13 @@
 // routes/doctors.ts
 import { Router,Request,Response } from 'express';
 import { db } from '../db';
-import { doctors,doctor_logs,users, all_entries, vitals } from '../db/schema';
+import { doctors,doctor_logs,users } from '../db/schema';
 import { eq } from 'drizzle-orm';
 import jwt from 'jsonwebtoken';
 import path from 'path';
 import fs from 'fs';
 import fileUpload from 'express-fileupload';   // ← Added
 import { authenticate } from '../middleware/auth';
-import { messaging } from '../lib/firebase-admin';
 
 const router = Router();
 
@@ -311,71 +310,7 @@ router.get('/assigned-doctor/:userId', async (req: any, res: any) => {
   }
 });
 
-// POST /api/notifications/alert-doctor
-router.post('/alert-doctor', authenticate, async (req: any, res: Response) => {
-  const { doctorId, vitalsId } = req.body;
 
-  try {
-    // 1. Validation
-    if (!doctorId || !vitalsId) {
-      return res.status(400).json({ error: "Missing doctorId or vitalsId" });
-    }
-
-    // 2. Find the Doctor's FCM Token
-    const [doctor] = await db.select()
-      .from(doctors)
-      .where(eq(doctors.id, doctorId))
-      .limit(1);
-
-    if (!doctor || !doctor.fcmToken) {
-      return res.status(404).json({ error: "Doctor not found or not registered for notifications" });
-    }
-
-    // 3. Find the Patient Name (Bridging vitals -> all_entries)
-    // We join vitals with all_entries to get the patient's name for the notification
-    const [patientData] = await db.select({
-      firstName: all_entries.firstName,
-      lastName: all_entries.lastName
-    })
-    .from(vitals)
-    .innerJoin(all_entries, eq(vitals.patient_id, all_entries.id))
-    .where(eq(vitals.id, vitalsId))
-    .limit(1);
-
-    const patientDisplayName = patientData 
-      ? `${patientData.firstName} ${patientData.lastName}` 
-      : "A Patient";
-
-    // 4. Construct the Firebase Message
-    const message = {
-      notification: {
-        title: "Incoming Consultation",
-        body: `${patientDisplayName} is ready for a video call.`,
-      },
-      data: {
-        type: "VIDEO_CALL",
-        vitalsId: String(vitalsId),
-        click_action: "FLUTTER_NOTIFICATION_CLICK", // For mobile apps
-      },
-      token: doctor.fcmToken,
-    };
-
-    // 5. Send Notification via Firebase Admin SDK
-    await messaging.send(message);
-
-    res.json({ 
-      success: true, 
-      message: `Alert sent to Dr. ${doctor.lastName}` 
-    });
-
-  } catch (err: any) {
-    console.error('ALERT DOCTOR ERROR:', err);
-    res.status(500).json({ 
-      error: 'Failed to notify doctor', 
-      details: err.message 
-    });
-  }
-});
 
 export default router;
 export { authenticateDoctor as docAuth };

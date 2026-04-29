@@ -4,6 +4,7 @@ import { all_entries, doctors, vitals } from '../db/schema';
 import { eq } from 'drizzle-orm';
 import { messaging } from '../lib/firebase-admin';
 import { authenticate } from '../middleware/auth';
+import { authenticateDoctor } from './doctors';
 
 const router = Router();
 
@@ -18,12 +19,21 @@ const isMessagingReady = () => {
 
 // --- DOCTOR CALLS THIS ON LOGIN ---
 router.post('/save-doctor-token', authenticate, async (req: any, res: Response) => {
+    console.log('RAW BODY:', JSON.stringify(req.body)); // ← add this
+    console.log('FULL BODY:', req.body);           // ← add this
+    console.log('AUTH HEADER:', req.headers.authorization);
     const { token } = req.body;
+    console.log('TOKEN AFTER DESTRUCTURE:', token);
 
-    // Extract UUID safely from JWT payload
     const doctorId = req.user?.doctorId || req.user?.id || req.user?.userId;
 
-    console.log(`[DEBUG] Saving FCM token for UUID: ${doctorId}`);
+    console.log(`[DEBUG] Doctor ID: ${doctorId}`);
+    console.log("🔥 RECEIVED TOKEN:", token);
+
+    // notifications.ts — save-doctor-token route
+    if (!token || typeof token !== 'string' || token.trim() === '' || token === 'undefined') {
+        return res.status(400).json({ error: "Missing or invalid FCM token." });
+    }
 
     if (!doctorId || typeof doctorId !== 'string') {
         return res.status(401).json({
@@ -32,19 +42,23 @@ router.post('/save-doctor-token', authenticate, async (req: any, res: Response) 
         });
     }
 
-    if (!token) {
-        return res.status(400).json({ error: "Missing FCM token." });
+    if (!token || token.length < 100) {
+        return res.status(400).json({
+            error: "Invalid FCM token received"
+        });
     }
 
     try {
-        // Perform update using the UUID string
-        const result = await db.update(doctors)
-            .set({ fcmToken: token })
+        await db.update(doctors)
+            .set({ fcmToken:token })
             .where(eq(doctors.id, doctorId));
 
-        return res.json({ success: true, message: "Token saved." });
+        console.log("✅ Token saved in DB");
+
+        return res.json({ success: true });
+
     } catch (err: any) {
-        console.error("❌ DB UPDATE ERROR:", err.message);
+        console.error("❌ DB ERROR:", err.message);
         return res.status(500).json({
             error: "Database error",
             details: err.message
@@ -53,7 +67,7 @@ router.post('/save-doctor-token', authenticate, async (req: any, res: Response) 
 });
 
 // --- PATIENT CALLS THIS TO START THE CALL ---
-router.post('/alert-doctor', authenticate, async (req: any, res: Response) => {
+router.post('/alert-doctor', authenticateDoctor, async (req: any, res: Response) => {
     const { doctorId, vitalsId } = req.body;
 
     if (!isMessagingReady()) {

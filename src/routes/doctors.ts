@@ -1,28 +1,25 @@
-// routes/doctors.ts
-import { Router,Request,Response } from 'express';
+import { Router, Request, Response } from 'express';
 import { db } from '../db';
-import { doctors,doctor_logs,users } from '../db/schema';
+import { doctors, doctor_logs, users } from '../db/schema';
 import { eq } from 'drizzle-orm';
 import jwt from 'jsonwebtoken';
 import path from 'path';
 import fs from 'fs';
-import fileUpload from 'express-fileupload';   // ← Added
+import fileUpload from 'express-fileupload';
 import { authenticate } from '../middleware/auth';
 
 const router = Router();
 
-// // ─────────────────────────────────────────────
-// // FILE UPLOAD SETUP (replaces multer)
-// // ─────────────────────────────────────────────
-// router.use(fileUpload({
-//   createParentPath: true,        // auto create folders
-//   limits: { fileSize: 5 * 1024 * 1024 }, // 5MB
-//   abortOnLimit: true,
-//   useTempFiles: false,
-// }));
+// Scoped ONLY to routes that handle file uploads
+const uploadMiddleware = fileUpload({
+  createParentPath: true,
+  limits: { fileSize: 5 * 1024 * 1024 },
+  abortOnLimit: true,
+  useTempFiles: false,
+});
 
 // ─────────────────────────────────────────────
-// HELPER: doc authenticate middleware
+// HELPER: Doctor authenticate middleware
 // ─────────────────────────────────────────────
 export const authenticateDoctor = (req: any, res: any, next: any) => {
   const authHeader = req.headers.authorization;
@@ -57,23 +54,22 @@ const getNow = () => {
 
 // ─────────────────────────────────────────────
 // 1. REGISTER DOCTOR
-// POST /api/doctors/register
+// uploadMiddleware is ONLY applied to this route
 // ─────────────────────────────────────────────
-router.post('/register', authenticate, async (req: any, res: Response) => {   // ← authenticate added back
+router.post('/register', authenticate, uploadMiddleware, async (req: any, res: Response) => {
   const {
     title, firstName, lastName, email, password,
     phone, gender, experience, city,
     specializations, qualifications,
   } = req.body;
 
-  const staffUserId = req.user.userId;   // ← This is your logged-in clinic user ID
+  const staffUserId = req.user.userId;
 
   if (!title || !firstName || !lastName || !email || !password) {
     return res.status(400).json({ error: 'Required fields missing' });
   }
 
   try {
-    // Check duplicate email
     const [existing] = await db.select({ id: doctors.id })
       .from(doctors)
       .where(eq(doctors.email, email))
@@ -85,21 +81,17 @@ router.post('/register', authenticate, async (req: any, res: Response) => {   //
 
     const { date, time } = getNow();
 
-    // Handle photo upload
     let photoPath: string | null = null;
     if (req.files?.photo) {
       const photo = req.files.photo as fileUpload.UploadedFile;
       const dir = 'uploads/doctors';
       if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-
       const unique = `${Date.now()}-${Math.round(Math.random() * 1e9)}`;
       const fileName = `${unique}${path.extname(photo.name)}`;
-      const fullPath = path.join(dir, fileName);
-
-      await photo.mv(fullPath);
+      await photo.mv(path.join(dir, fileName));
       photoPath = `/uploads/doctors/${fileName}`;
     }
-    // console.log(photoPath);
+
     const safeSpecs = (() => { try { return JSON.parse(specializations); } catch { return []; } })();
     const safeQuals = (() => { try { return JSON.parse(qualifications); } catch { return []; } })();
 
@@ -111,12 +103,11 @@ router.post('/register', authenticate, async (req: any, res: Response) => {   //
       password,
       phone: phone || null,
       gender: gender || null,
-      // photo: photoPath,
       specializations: safeSpecs,
       qualifications: safeQuals,
       experience: parseInt(experience) || 0,
       city: city || null,
-      user_id: staffUserId,                    // ← Foreign key link (1 user → many doctors)
+      user_id: staffUserId,
       createdDate: date,
       createdTime: time,
       updatedDate: date,
@@ -156,7 +147,8 @@ router.post('/register', authenticate, async (req: any, res: Response) => {   //
 });
 
 // ─────────────────────────────────────────────
-// 2. UPDATE DOCTOR PROFILE (unchanged)
+// 2. UPDATE DOCTOR PROFILE
+// No uploadMiddleware here — pure JSON
 // ─────────────────────────────────────────────
 router.put('/update/:id', authenticateDoctor, async (req: any, res: any) => {
   const { id } = req.params;
@@ -177,26 +169,24 @@ router.put('/update/:id', authenticateDoctor, async (req: any, res: any) => {
 
     const [updated] = await db.update(doctors)
       .set({
-        ...(title       && { title }),
-        ...(firstName   && { firstName }),
-        ...(lastName    && { lastName }),
-        ...(email       && { email }),
-        ...(password    && { password }),
-        ...(phone       && { phone }),
-        ...(gender      && { gender }),
+        ...(title        && { title }),
+        ...(firstName    && { firstName }),
+        ...(lastName     && { lastName }),
+        ...(email        && { email }),
+        ...(password     && { password }),
+        ...(phone        && { phone }),
+        ...(gender       && { gender }),
         ...(specializations && { specializations }),
         ...(qualifications  && { qualifications }),
         ...(experience !== undefined && { experience: parseInt(experience) || 0 }),
-        ...(city        && { city }),
+        ...(city         && { city }),
         updatedDate: date,
         updatedTime: time,
       })
       .where(eq(doctors.id, id))
       .returning();
 
-    if (!updated) {
-      return res.status(404).json({ error: 'Doctor not found' });
-    }
+    if (!updated) return res.status(404).json({ error: 'Doctor not found' });
 
     res.json({
       success: true,
@@ -224,7 +214,7 @@ router.put('/update/:id', authenticateDoctor, async (req: any, res: any) => {
 });
 
 // ─────────────────────────────────────────────
-// 3. GET DOCTOR PROFILE (unchanged)
+// 3. GET DOCTOR PROFILE
 // ─────────────────────────────────────────────
 router.get('/me', authenticateDoctor, async (req: any, res: any) => {
   try {
@@ -235,8 +225,7 @@ router.get('/me', authenticateDoctor, async (req: any, res: any) => {
 
     if (!doctor) return res.status(404).json({ error: 'Doctor not found' });
 
-    // const { password: _, ...safeDoctor } = doctor;
-     res.json({ success: true, doctor });
+    res.json({ success: true, doctor });
 
   } catch (err: any) {
     console.error('GET ME ERROR:', err);
@@ -245,7 +234,7 @@ router.get('/me', authenticateDoctor, async (req: any, res: any) => {
 });
 
 // ─────────────────────────────────────────────
-// 4. DOCTOR LOGOUT WITH REASON
+// 4. DOCTOR LOGOUT
 // ─────────────────────────────────────────────
 router.post('/logout', authenticateDoctor, async (req: any, res: any) => {
   const { reason } = req.body;
@@ -261,7 +250,7 @@ router.post('/logout', authenticateDoctor, async (req: any, res: any) => {
     await db.insert(doctor_logs).values({
       doctor_id: doctorId,
       action: "logout",
-      reason: reason,
+      reason,
       createdDate: date,
       createdTime: time,
     });
@@ -273,44 +262,37 @@ router.post('/logout', authenticateDoctor, async (req: any, res: any) => {
   }
 });
 
-// GET /api/doctors/assigned-doctor/:userId
+// ─────────────────────────────────────────────
+// 5. GET ASSIGNED DOCTOR BY USER ID
+// ─────────────────────────────────────────────
 router.get('/assigned-doctor/:userId', async (req: any, res: any) => {
   const { userId } = req.params;
 
   try {
-    // 1. Find the doctor that references this Kiosk's userId
-    // Based on your schema: doctors.user_id -> users.id
     const [doctor] = await db.select()
       .from(doctors)
-      .where(eq(doctors.user_id, userId)) // We look for the link here
+      .where(eq(doctors.user_id, userId))
       .limit(1);
 
     if (!doctor) {
-      return res.status(404).json({ 
+      return res.status(404).json({
         success: false,
-        error: 'No doctor is currently assigned to this kiosk account.' 
+        error: 'No doctor is currently assigned to this kiosk account.',
       });
     }
 
-    // 2. Return the doctor details
-    // I noticed your schema uses firstName and lastName separately
-    res.json({ 
-      success: true, 
-      doctorId: doctor.id, 
+    res.json({
+      success: true,
+      doctorId: doctor.id,
       doctorName: `Dr. ${doctor.firstName} ${doctor.lastName}`,
-      fcmToken: !!doctor.fcmToken 
+      fcmToken: !!doctor.fcmToken,
     });
 
   } catch (err: any) {
     console.error('FETCH ASSIGNED DOCTOR ERROR:', err);
-    res.status(500).json({ 
-      error: 'Failed to fetch assigned doctor', 
-      details: err.message 
-    });
+    res.status(500).json({ error: 'Failed to fetch assigned doctor', details: err.message });
   }
 });
-
-
 
 export default router;
 export { authenticateDoctor as docAuth };

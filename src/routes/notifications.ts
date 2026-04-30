@@ -177,7 +177,6 @@ router.get('/call-status/:vitalsId', authenticate, async (req: Request, res: Res
     }
 });
 
-// POST /api/agoravideo/end-call
 // POST /api/notifications/end-call
 router.post('/end-call', authenticate, async (req: any, res: Response) => {
   const { vitalsId, reason } = req.body; // Add 'reason' here
@@ -188,7 +187,7 @@ router.post('/end-call', authenticate, async (req: any, res: Response) => {
 
   // Determine the specific status to save
   // Possible values: 'declined_by_patient', 'declined_by_doctor', 'doctor_not_responding'
-  const finalStatus = reason || 'ended';
+  const finalStatus = reason || 'default';
 
   try {
     await db.update(vitals)

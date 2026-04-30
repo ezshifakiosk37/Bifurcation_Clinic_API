@@ -178,7 +178,7 @@ router.get('/call-status/:vitalsId', authenticate, async (req: Request, res: Res
 });
 
 // POST /api/agoravideo/end-call
-router.post('/end-call', authenticateDoctor, async (req: any, res: Response) => {
+router.post('/end-call', authenticate, async (req: any, res: Response) => {
   const { vitalsId } = req.body;
 
   if (!vitalsId) {
@@ -189,7 +189,7 @@ router.post('/end-call', authenticateDoctor, async (req: any, res: Response) => 
     // Reset the status to 'idle' and clear the room name
     await db.update(vitals)
       .set({ 
-        callStatus: 'idle', 
+        callStatus: 'ended', 
         roomName: null 
       })
       .where(eq(vitals.id, String(vitalsId)));

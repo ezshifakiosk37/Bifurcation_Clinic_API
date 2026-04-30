@@ -127,4 +127,80 @@ router.post('/alert-doctor', authenticateDoctor, async (req: any, res: Response)
     }
 });
 
+// --- DOCTOR CALLS THIS TO ACCEPT THE CALL ---
+router.post('/accept-call', authenticateDoctor, async (req: any, res: Response) => {
+    const { vitalsId } = req.body;
+
+    if (!vitalsId) {
+        return res.status(400).json({ error: "Missing vitalsId" });
+    }
+
+    try {
+        await db.update(vitals)
+            .set({ callStatus: 'accepted' })
+            .where(eq(vitals.id, String(vitalsId)));
+
+        console.log(`✅ Call ${vitalsId} accepted by doctor`);
+        return res.json({ success: true, message: "Call accepted" });
+
+    } catch (err: any) {
+        console.error("❌ ACCEPT CALL ERROR:", err.message);
+        return res.status(500).json({ error: "Failed to accept call" });
+    }
+});
+
+// --- PATIENT POLLS THIS TO CHECK IF DOCTOR JOINED ---
+// We use the regular authenticate here because the Kiosk is calling this
+router.get('/call-status/:vitalsId', authenticate, async (req: Request, res: Response) => {
+    const { vitalsId } = req.params;
+
+    try {
+        const [record] = await db.select({
+            status: vitals.callStatus 
+        })
+            .from(vitals)
+            .where(eq(vitals.id, String(vitalsId)))
+            .limit(1);
+
+        if (!record) {
+            return res.status(404).json({ error: "Session not found" });
+        }
+
+        return res.json({ 
+            success: true, 
+            status: record.status || 'idle' 
+        });
+
+    } catch (err: any) {
+        console.error("❌ STATUS CHECK ERROR:", err.message);
+        return res.status(500).json({ error: "Failed to check status" });
+    }
+});
+
+// POST /api/agoravideo/end-call
+router.post('/end-call', authenticate, async (req: any, res: Response) => {
+  const { vitalsId } = req.body;
+
+  if (!vitalsId) {
+    return res.status(400).json({ error: "Vitals ID is required for cleanup." });
+  }
+
+  try {
+    // Reset the status to 'idle' and clear the room name
+    await db.update(vitals)
+      .set({ 
+        callStatus: 'idle', 
+        roomName: null 
+      })
+      .where(eq(vitals.id, String(vitalsId)));
+
+    console.log(`🧹 Session ${vitalsId} cleaned up and set to idle.`);
+    return res.json({ success: true, message: "Call ended and session cleared." });
+
+  } catch (err: any) {
+    console.error('END_CALL_ERROR:', err);
+    return res.status(500).json({ error: 'Failed to clear session status' });
+  }
+});
+
 export default router;

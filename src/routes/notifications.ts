@@ -180,6 +180,7 @@ router.get('/call-status/:vitalsId', authenticate, async (req: Request, res: Res
 // POST /api/notifications/end-call
 router.post('/end-call', authenticate, async (req: any, res: Response) => {
   const { vitalsId, reason } = req.body; // Add 'reason' here
+  console.log(reason)
 
   if (!vitalsId) {
     return res.status(400).json({ error: "Vitals ID required" });

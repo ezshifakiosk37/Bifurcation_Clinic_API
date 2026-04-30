@@ -76,30 +76,5 @@ router.get('/token/:vitalsId', async (req: any, res: Response) => {
   }
 });
 
-// POST /api/agoravideo/end-call
-router.post('/end-call', authenticate, async (req: any, res: Response) => {
-  const { vitalsId } = req.body;
-
-  if (!vitalsId) {
-    return res.status(400).json({ error: "Vitals ID is required for cleanup." });
-  }
-
-  try {
-    // Reset the status to 'idle' and clear the room name
-    await db.update(vitals)
-      .set({ 
-        callStatus: 'idle', 
-        roomName: null 
-      })
-      .where(eq(vitals.id, String(vitalsId)));
-
-    console.log(`🧹 Session ${vitalsId} cleaned up and set to idle.`);
-    return res.json({ success: true, message: "Call ended and session cleared." });
-
-  } catch (err: any) {
-    console.error('END_CALL_ERROR:', err);
-    return res.status(500).json({ error: 'Failed to clear session status' });
-  }
-});
 
 export default router;

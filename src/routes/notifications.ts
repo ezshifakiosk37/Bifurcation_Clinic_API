@@ -178,28 +178,31 @@ router.get('/call-status/:vitalsId', authenticate, async (req: Request, res: Res
 });
 
 // POST /api/agoravideo/end-call
+// POST /api/notifications/end-call
 router.post('/end-call', authenticate, async (req: any, res: Response) => {
-  const { vitalsId } = req.body;
+  const { vitalsId, reason } = req.body; // Add 'reason' here
 
   if (!vitalsId) {
-    return res.status(400).json({ error: "Vitals ID is required for cleanup." });
+    return res.status(400).json({ error: "Vitals ID required" });
   }
 
+  // Determine the specific status to save
+  // Possible values: 'declined_by_patient', 'declined_by_doctor', 'doctor_not_responding'
+  const finalStatus = reason || 'ended';
+
   try {
-    // Reset the status to 'idle' and clear the room name
     await db.update(vitals)
       .set({ 
-        callStatus: 'ended', 
+        callStatus: finalStatus, 
         roomName: null 
       })
       .where(eq(vitals.id, String(vitalsId)));
 
-    console.log(`🧹 Session ${vitalsId} cleaned up and set to idle.`);
-    return res.json({ success: true, message: "Call ended and session cleared." });
+    console.log(`🧹 Session ${vitalsId} set to: ${finalStatus}`);
+    return res.json({ success: true, status: finalStatus });
 
   } catch (err: any) {
-    console.error('END_CALL_ERROR:', err);
-    return res.status(500).json({ error: 'Failed to clear session status' });
+    return res.status(500).json({ error: 'Failed to update status' });
   }
 });
 

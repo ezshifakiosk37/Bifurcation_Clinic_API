@@ -246,6 +246,8 @@ router.post('/save-vitals', authenticate, async (req: any, res: any) => {
       Temperature: v.Temperature?.toString(),
       Weight: v.Weight?.toString(),
       Height: v.Height?.toString(),
+      bmi: v.bmi ? v.bmi.toString() : null,                 // ADD
+      patientType: v.patientType || "Walk-in",
       symptoms: v.symptoms ? v.symptoms.toString() : null,
       callStatus: "idle",
     }).returning();
@@ -400,6 +402,8 @@ router.get('/today-queue', authenticate, async (req, res) => {
         Temperature: vitals.Temperature,
         Weight: vitals.Weight,
         Height: vitals.Height,
+        bmi: vitals.bmi,
+        patientType: vitals.patientType,
       })
       .from(vitals)
       .where(sql`${vitals.patient_id} = ANY(ARRAY[${sql.join(patientIds.map(id => sql`${id}::uuid`), sql`, `)}])`)
@@ -426,11 +430,14 @@ router.get('/today-queue', authenticate, async (req, res) => {
         vitalsRecorded: p.vitalsRecorded,
         isCompleted: completedIds.has(p.id),
         symptoms: v?.symptoms ?? null,
+        patientType: v?.patientType ?? 'Walk-in',
         vitals: v ? {
           temp: v.Temperature ?? '—',
           bp: (v.Systolic && v.Diastolic) ? `${v.Systolic}/${v.Diastolic}` : '—',
           pulse: v.PulseRate ?? '—',
           weight: v.Weight ?? '—',
+          BloodOxygen:v.BloodOxygen ?? '—',
+          bmi: v.bmi ?? '—',
         } : null,
       };
     });

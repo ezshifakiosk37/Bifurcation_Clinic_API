@@ -137,6 +137,7 @@ router.post('/register', authenticate, uploadMiddleware, async (req: any, res: R
         qualifications: newDoctor.qualifications,
         experience: newDoctor.experience,
         city: newDoctor.city,
+        doctorStatus: newDoctor.doctorStatus,
       },
     });
 
@@ -169,17 +170,18 @@ router.put('/update/:id', authenticateDoctor, async (req: any, res: any) => {
 
     const [updated] = await db.update(doctors)
       .set({
-        ...(title        && { title }),
-        ...(firstName    && { firstName }),
-        ...(lastName     && { lastName }),
-        ...(email        && { email }),
-        ...(password     && { password }),
-        ...(phone        && { phone }),
-        ...(gender       && { gender }),
+        ...(title && { title }),
+        ...(firstName && { firstName }),
+        ...(lastName && { lastName }),
+        ...(email && { email }),
+        ...(password && { password }),
+        ...(phone && { phone }),
+        ...(gender && { gender }),
         ...(specializations && { specializations }),
-        ...(qualifications  && { qualifications }),
+        ...(qualifications && { qualifications }),
         ...(experience !== undefined && { experience: parseInt(experience) || 0 }),
-        ...(city         && { city }),
+        ...(city && { city }),
+
         updatedDate: date,
         updatedTime: time,
       })
@@ -204,6 +206,7 @@ router.put('/update/:id', authenticateDoctor, async (req: any, res: any) => {
         qualifications: updated.qualifications,
         experience: updated.experience,
         city: updated.city,
+        doctorStatus: updated.doctorStatus,
       },
     });
 
@@ -230,6 +233,31 @@ router.get('/me', authenticateDoctor, async (req: any, res: any) => {
   } catch (err: any) {
     console.error('GET ME ERROR:', err);
     res.status(500).json({ error: 'Failed to fetch profile', details: err.message });
+  }
+});
+
+router.patch('/status', authenticateDoctor, async (req: any, res: any) => {
+  const doctorId = req.doctor.doctorId;
+  const { status } = req.body;
+
+  if (!['online', 'offline'].includes(status)) {
+    return res.status(400).json({ error: 'Status must be "online" or "offline"' });
+  }
+
+  const { date, time } = getNow();
+
+  try {
+    const [updated] = await db.update(doctors)
+      .set({ doctorStatus: status, updatedDate: date, updatedTime: time })
+      .where(eq(doctors.id, doctorId))
+      .returning({ id: doctors.id, doctorStatus: doctors.doctorStatus });
+
+    if (!updated) return res.status(404).json({ error: 'Doctor not found' });
+
+    res.json({ success: true, doctorStatus: updated.doctorStatus });
+  } catch (err: any) {
+    console.error('STATUS UPDATE ERROR:', err);
+    res.status(500).json({ error: 'Failed to update status', details: err.message });
   }
 });
 
@@ -286,6 +314,7 @@ router.get('/assigned-doctor/:userId', async (req: any, res: any) => {
       doctorId: doctor.id,
       doctorName: `Dr. ${doctor.firstName} ${doctor.lastName}`,
       fcmToken: !!doctor.fcmToken,
+      doctorStatus: doctor.doctorStatus,
     });
 
   } catch (err: any) {

@@ -28,7 +28,7 @@ router.post('/save', authenticate, async (req, res) => {
     const createdDate = pktDate;
     const createdTime = pktTime;
 
-const [inserted] = await db.insert(vitals).values({
+    const [inserted] = await db.insert(vitals).values({
       patient_id: patientId,
       token: patient?.token ?? null,
       createdDate,
@@ -41,6 +41,8 @@ const [inserted] = await db.insert(vitals).values({
       Weight: vData.Weight,
       Height: vData.Height,
       symptoms: vData.symptoms || null,
+      bmi: vData.bmi ? vData.bmi.toString() : null,         // ADD
+      patientType: vData.patientType || "Walk-in",
       callStatus: "idle",
     }).returning();
 
@@ -70,6 +72,8 @@ router.get('/history-by-phone/:phone', authenticate, async (req, res) => {
         Temperature: vitals.Temperature,
         Weight: vitals.Weight,
         Height: vitals.Height,
+        bmi: vitals.bmi,
+        patientType: vitals.patientType,
         symptoms: vitals.symptoms,
         createdDate: vitals.createdDate,
         createdTime: vitals.createdTime,
@@ -97,6 +101,8 @@ router.get('/history-by-phone/:phone', authenticate, async (req, res) => {
       Weight: rec.Weight,
       Height: rec.Height,
       symptoms: rec.symptoms,
+      bmi: rec.bmi,
+      patientType: rec.patientType,
       createdDate: rec.createdDate,
       createdTime: rec.createdTime,
     }));

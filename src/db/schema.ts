@@ -53,7 +53,9 @@ export const vitals = pgTable("vitals", {
   Weight: text("Weight"),
   Height: text("Height"),
   symptoms: text("symptoms"),
+  bmi:text("bmi"),
   token: varchar("token", { length: 10 }),
+  patientType: text("patientType").default("Walk-in"),
 
   createdDate: date("created_date"),
   createdTime: time("created_time"),
@@ -83,8 +85,10 @@ export const doctors = pgTable("doctors", {
   qualifications: jsonb("qualifications").notNull().default([]),
   experience: integer("experience").default(0),
   city: text("city"),
+  doctorStatus: text("doctorStatus").default("online"),
+  
   user_id: uuid("user_id").references(() => users.id),
-
+  
   createdDate: date("created_date").defaultNow().notNull(),
   createdTime: time("created_time").defaultNow(),
   updatedDate: date("updated_date").defaultNow().notNull(),

@@ -53,6 +53,34 @@ router.post('/save', authenticate, async (req, res) => {
   }
 });
 
+router.patch('/update/:vitalsId', authenticate, async (req, res) => {
+  const { vitalsId } = req.params;
+  const { vitals: vData } = req.body;
+
+  try {
+    const [updated] = await db.update(vitals)
+      .set({
+        PulseRate: vData.PulseRate,
+        BloodOxygen: vData.Spo2,
+        Systolic: vData.BP?.value1,
+        Diastolic: vData.BP?.value2,
+        Temperature: vData.Temperature,
+        Weight: vData.Weight,
+        Height: vData.Height,
+        symptoms: vData.symptoms || null,
+        bmi: vData.bmi ? vData.bmi.toString() : null,
+        patientType: vData.patientType || "Walk-in",
+      })
+      .where(eq(vitals.id, vitalsId as string))
+      .returning();
+
+    res.json({ success: true, data: updated });
+  } catch (err) {
+    console.error("Update Error:", err);
+    res.status(500).json({ error: "Failed to update vitals" });
+  }
+});
+
 router.get('/history-by-phone/:phone', authenticate, async (req, res) => {
   const { phone } = req.params;
 

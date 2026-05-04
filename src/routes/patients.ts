@@ -403,6 +403,7 @@ router.get('/today-queue', authenticate, async (req, res) => {
         Weight: vitals.Weight,
         Height: vitals.Height,
         bmi: vitals.bmi,
+        vitalId: vitals.id,
         patientType: vitals.patientType,
       })
       .from(vitals)
@@ -431,6 +432,7 @@ router.get('/today-queue', authenticate, async (req, res) => {
         isCompleted: completedIds.has(p.id),
         symptoms: v?.symptoms ?? null,
         patientType: v?.patientType ?? 'Walk-in',
+        vitalsId: v?.vitalId ?? null,
         vitals: v ? {
           temp: v.Temperature ?? '—',
           bp: (v.Systolic && v.Diastolic) ? `${v.Systolic}/${v.Diastolic}` : '—',

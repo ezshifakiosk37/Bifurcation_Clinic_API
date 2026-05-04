@@ -371,6 +371,7 @@ router.get('/today-queue', authenticate, async (req, res) => {
         gender: all_entries.gender,
         vitalsRecorded: all_entries.vitalsRecorded,
         tokenTime: all_entries.tokenTime,
+        phoneNumber: all_entries.phoneNumber,
       })
       .from(all_entries)
       .where(eq(all_entries.tokenDate, today))
@@ -426,6 +427,7 @@ router.get('/today-queue', authenticate, async (req, res) => {
         token: p.token,
         firstName: p.firstName,
         lastName: p.lastName,
+        phoneNumber: p.phoneNumber,
         age: p.age,
         gender: p.gender,
         vitalsRecorded: p.vitalsRecorded,

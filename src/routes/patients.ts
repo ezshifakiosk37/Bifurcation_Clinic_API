@@ -80,6 +80,7 @@ router.post('/save', authenticate, async (req: any, res: any) => {
         .select({
           vitalsRecorded: all_entries.vitalsRecorded,
           tokenDate: all_entries.tokenDate,
+          token: all_entries.token,
         })
         .from(all_entries)
         .where(and(eq(all_entries.id, id), eq(all_entries.user_id, userId)))
@@ -105,7 +106,7 @@ router.post('/save', authenticate, async (req: any, res: any) => {
           const inVitalsQueue = existing.vitalsRecorded === false;
           return res.status(409).json({
             error: inVitalsQueue
-              ? "Patient is already waiting for vitals. Please go to vitals."
+              ? "Patient is already waiting for vitals. Please complete vitals first."
               : "Patient is already waiting in the doctor queue. Token cannot be regenerated until the doctor ends their session."
           });
         }

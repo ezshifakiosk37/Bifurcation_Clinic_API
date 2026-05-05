@@ -438,7 +438,14 @@ router.get('/today-queue', authenticate, async (req, res) => {
 
     // A patient is only "completed" if their CURRENT token matches the prescription token
     // This handles returning patients who get a new token after doctor session ends
-    const completedMap = new Map(completedToday.map(c => [c.patient_id, c.token]));
+    // Build a map of patientId -> SET of completed tokens (handles multiple visits same day)
+    const completedMap = new Map<string, Set<string>>();
+    for (const c of completedToday) {
+      if (!completedMap.has(c.patient_id)) {
+        completedMap.set(c.patient_id, new Set());
+      }
+      completedMap.get(c.patient_id)!.add(c.token!);
+    }
 
     if (patients.length === 0) {
       return res.json({ success: true, patients: [] });
@@ -475,9 +482,9 @@ router.get('/today-queue', authenticate, async (req, res) => {
     }
 
     // Step 4: merge with nested vitals object + completion flag
-    // Step 4: active queue — vitals done but current token not yet prescribedd
+    // Step 4: active queue — vitals done but current token not yet prescribed
     const activeQueue = patients
-      .filter(p => p.vitalsRecorded && completedMap.get(p.id) !== p.token)
+      .filter(p => p.vitalsRecorded && !completedMap.get(p.id)?.has(p.token!))
       .map(p => {
         const v = vitalsMap.get(p.id);
         return {

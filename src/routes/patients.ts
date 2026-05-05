@@ -86,27 +86,30 @@ router.post('/save', authenticate, async (req: any, res: any) => {
         .limit(1);
 
       if (existing && existing.tokenDate === today) {
-        // Check if doctor has already completed their session (prescription exists today)
-        const [prescription] = await db
+
+        // Check if current token already has a prescription (this visit is done)
+        const [prescriptionForCurrentToken] = await db
           .select({ id: prescriptions.id })
           .from(prescriptions)
           .where(
             and(
               eq(prescriptions.patient_id, id),
-              eq(prescriptions.prescriptionDate, today)
+              eq(prescriptions.prescriptionDate, today),
+              eq(prescriptions.token, existing.token!)
             )
           )
           .limit(1);
 
-        if (!prescription) {
+        if (!prescriptionForCurrentToken) {
+          // Current token visit is NOT done yet — block re-entry
           const inVitalsQueue = existing.vitalsRecorded === false;
           return res.status(409).json({
             error: inVitalsQueue
-              ? "Patient is already waiting for vitals. Please complete vitals first."
+              ? "Patient is already waiting for vitals. Please go to vitals."
               : "Patient is already waiting in the doctor queue. Token cannot be regenerated until the doctor ends their session."
           });
         }
-        // else: doctor session done, fall through and allow a fresh token
+        // Current token has a prescription = that visit is fully done, allow new token
       }
     }
 

@@ -85,7 +85,7 @@ router.post('/save', authenticate, async (req: any, res: any) => {
         .where(and(eq(all_entries.id, id), eq(all_entries.user_id, userId)))
         .limit(1);
 
-      if (existing && existing.tokenDate === today && existing.vitalsRecorded === true) {
+      if (existing && existing.tokenDate === today) {
         // Check if doctor has already completed their session (prescription exists today)
         const [prescription] = await db
           .select({ id: prescriptions.id })
@@ -99,9 +99,11 @@ router.post('/save', authenticate, async (req: any, res: any) => {
           .limit(1);
 
         if (!prescription) {
-          // Patient is sitting in vitals queue or doctor queue — block re-entry
+          const inVitalsQueue = existing.vitalsRecorded === false;
           return res.status(409).json({
-            error: "Patient is already waiting in the queue. Token cannot be regenerated until the doctor ends their session."
+            error: inVitalsQueue
+              ? "Patient is already waiting for vitals. Please complete vitals first."
+              : "Patient is already waiting in the doctor queue. Token cannot be regenerated until the doctor ends their session."
           });
         }
         // else: doctor session done, fall through and allow a fresh token
@@ -419,11 +421,13 @@ router.get('/today-queue', authenticate, async (req, res) => {
 
     // Step 1b: get which patients already have a prescription today
     const completedToday = await db
-      .select({ patient_id: prescriptions.patient_id })
+      .select({ patient_id: prescriptions.patient_id, token: prescriptions.token })
       .from(prescriptions)
       .where(eq(prescriptions.prescriptionDate, today));
 
-    const completedIds = new Set(completedToday.map(c => c.patient_id));
+    // A patient is only "completed" if their CURRENT token matches the prescription token
+    // This handles returning patients who get a new token after doctor session ends
+    const completedMap = new Map(completedToday.map(c => [c.patient_id, c.token]));
 
     if (patients.length === 0) {
       return res.json({ success: true, patients: [] });
@@ -471,7 +475,7 @@ router.get('/today-queue', authenticate, async (req, res) => {
         age: p.age,
         gender: p.gender,
         vitalsRecorded: p.vitalsRecorded,
-        isCompleted: completedIds.has(p.id),
+        isCompleted: completedMap.get(p.id) === p.token,
         symptoms: v?.symptoms ?? null,
         patientType: v?.patientType ?? 'Walk-in',
         vitalsId: v?.vitalId ?? null,

@@ -272,7 +272,7 @@ router.post('/save-vitals', authenticate, async (req: any, res: any) => {
     const { patientId, vitals: v } = req.body;
     if (!patientId) return res.status(400).json({ error: "Missing patient ID" });
 
-    // Fetch the patient's token to store alongside vitals
+    // Fetch the patient's token to store alongside vital
     const [patient] = await db.select({ token: all_entries.token })
       .from(all_entries)
       .where(eq(all_entries.id, patientId))

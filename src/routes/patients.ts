@@ -475,7 +475,7 @@ router.get('/today-queue', authenticate, async (req, res) => {
     }
 
     // Step 4: merge with nested vitals object + completion flag
-    // Step 4: active queue — vitals done but current token not yet prescribed
+    // Step 4: active queue — vitals done but current token not yet prescribedd
     const activeQueue = patients
       .filter(p => p.vitalsRecorded && completedMap.get(p.id) !== p.token)
       .map(p => {

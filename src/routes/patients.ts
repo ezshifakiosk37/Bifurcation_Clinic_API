@@ -315,24 +315,35 @@ router.get('/today-stats', authenticate, async (req, res) => {
   }).format(new Date());
 
   try {
-    const [stats] = await db
-      .select({
-        totalPatients: sql<number>`count(distinct ${all_entries.id})`,
-        inQueue: sql<number>`count(distinct ${all_entries.id}) filter (where ${all_entries.vitalsRecorded} = true and ${prescriptions.id} is null)`,
-        completed: sql<number>`count(distinct ${prescriptions.patient_id})`,
-      })
+    const [tokenCount] = await db
+      .select({ total: sql<number>`count(*)` })
       .from(all_entries)
-      .leftJoin(prescriptions, and(
-        eq(prescriptions.patient_id, all_entries.id),
-        eq(prescriptions.prescriptionDate, today)
-      ))
       .where(eq(all_entries.tokenDate, today));
+
+    const [prescriptionCount] = await db
+      .select({ total: sql<number>`count(*)` })
+      .from(prescriptions)
+      .where(eq(prescriptions.prescriptionDate, today));
+
+    const [queueCount] = await db
+      .select({ total: sql<number>`count(*)` })
+      .from(all_entries)
+      .where(and(
+        eq(all_entries.tokenDate, today),
+        eq(all_entries.vitalsRecorded, true),
+        sql`not exists (
+          select 1 from ${prescriptions}
+          where ${prescriptions.patient_id} = ${all_entries.id}
+          and ${prescriptions.prescriptionDate} = ${today}
+          and ${prescriptions.token} = ${all_entries.token}
+        )`
+      ));
 
     res.json({
       success: true,
-      todayPatients: stats.totalPatients || 0,
-      inQueue: stats.inQueue || 0,
-      completed: stats.completed || 0,
+      todayPatients: tokenCount.total || 0,
+      inQueue: queueCount.total || 0,
+      completed: prescriptionCount.total || 0,
     });
   } catch (err: any) {
     console.error("TODAY STATS ERROR:", err);
@@ -464,36 +475,68 @@ router.get('/today-queue', authenticate, async (req, res) => {
     }
 
     // Step 4: merge with nested vitals object + completion flag
-    const result = patients.map(p => {
-      const v = vitalsMap.get(p.id);
-      return {
-        id: p.id,
-        token: p.token,
-        firstName: p.firstName,
-        lastName: p.lastName,
-        phoneNumber: p.phoneNumber,
-        age: p.age,
-        gender: p.gender,
-        vitalsRecorded: p.vitalsRecorded,
-        isCompleted: completedMap.get(p.id) === p.token,
-        symptoms: v?.symptoms ?? null,
-        patientType: v?.patientType ?? 'Walk-in',
-        vitalsId: v?.vitalId ?? null,
-        vitals: v ? {
-          temp: v.Temperature ?? '—',
-          bp: (v.Systolic && v.Diastolic) ? `${v.Systolic}/${v.Diastolic}` : '—',
-          pulse: v.PulseRate ?? '—',
-          weight: v.Weight ?? '—',
-          BloodOxygen: v.BloodOxygen ?? '—',
-          bmi: v.bmi ?? '—',
-        } : null,
-      };
-    });
+    // Step 4: active queue — vitals done but current token not yet prescribed
+    const activeQueue = patients
+      .filter(p => p.vitalsRecorded && completedMap.get(p.id) !== p.token)
+      .map(p => {
+        const v = vitalsMap.get(p.id);
+        return {
+          id: p.id,
+          token: p.token,
+          firstName: p.firstName,
+          lastName: p.lastName,
+          phoneNumber: p.phoneNumber,
+          age: p.age,
+          gender: p.gender,
+          vitalsRecorded: p.vitalsRecorded,
+          symptoms: v?.symptoms ?? null,
+          patientType: v?.patientType ?? 'Walk-in',
+          vitalsId: v?.vitalId ?? null,
+          vitals: v ? {
+            temp: v.Temperature ?? '—',
+            bp: (v.Systolic && v.Diastolic) ? `${v.Systolic}/${v.Diastolic}` : '—',
+            pulse: v.PulseRate ?? '—',
+            weight: v.Weight ?? '—',
+            BloodOxygen: v.BloodOxygen ?? '—',
+            bmi: v.bmi ?? '—',
+          } : null,
+        };
+      });
+
+    // Step 5: completed — one row PER PRESCRIPTION so returning patients show twice
+    const completedQueue = await db
+      .select({
+        prescriptionId: prescriptions.id,
+        token: prescriptions.token,
+        diagnosis: prescriptions.diagnosis,
+        prescriptionTime: prescriptions.prescriptionTime,
+        patientId: all_entries.id,
+        firstName: all_entries.firstName,
+        lastName: all_entries.lastName,
+        phoneNumber: all_entries.phoneNumber,
+        age: all_entries.age,
+        gender: all_entries.gender,
+      })
+      .from(prescriptions)
+      .innerJoin(all_entries, eq(prescriptions.patient_id, all_entries.id))
+      .where(eq(prescriptions.prescriptionDate, today))
+      .orderBy(desc(prescriptions.prescriptionTime));
 
     res.json({
       success: true,
-      patients: result.filter(p => !p.isCompleted && p.vitalsRecorded),
-      completed: result.filter(p => p.isCompleted),
+      patients: activeQueue,
+      completed: completedQueue.map(c => ({
+        id: c.patientId,
+        prescriptionId: c.prescriptionId,
+        token: c.token,
+        firstName: c.firstName,
+        lastName: c.lastName,
+        phoneNumber: c.phoneNumber,
+        age: c.age,
+        gender: c.gender,
+        diagnosis: c.diagnosis,
+        isCompleted: true,
+      })),
     });
 
   } catch (err: any) {

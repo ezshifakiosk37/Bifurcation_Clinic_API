@@ -2,7 +2,7 @@
 import { Router } from 'express';
 import { db } from '../db';
 import { all_entries, vitals, prescriptions, prescription_medicines } from '../db/schema';
-import { eq, desc, and, sql, inArray  } from 'drizzle-orm';
+import { eq, desc, and, sql, inArray } from 'drizzle-orm';
 import { authenticate } from '../middleware/auth';
 import { authenticateDoctor } from './doctors';
 
@@ -67,8 +67,48 @@ router.post('/save', authenticate, async (req: any, res: any) => {
 
   try {
     const isValidId = id && id !== "null" && id !== "" && id !== undefined;
-    const freshToken = await getNextToken();
     const { createdDate, createdTime } = getNow();
+
+    // ── GUARD: block re-tokenization if patient is already in vitals/doctor queue ──
+    if (isValidId) {
+      const today = new Intl.DateTimeFormat('en-CA', {
+        timeZone: 'Asia/Karachi',
+        year: 'numeric', month: '2-digit', day: '2-digit',
+      }).format(new Date());
+
+      const [existing] = await db
+        .select({
+          vitalsRecorded: all_entries.vitalsRecorded,
+          tokenDate: all_entries.tokenDate,
+        })
+        .from(all_entries)
+        .where(and(eq(all_entries.id, id), eq(all_entries.user_id, userId)))
+        .limit(1);
+
+      if (existing && existing.tokenDate === today && existing.vitalsRecorded === true) {
+        // Check if doctor has already completed their session (prescription exists today)
+        const [prescription] = await db
+          .select({ id: prescriptions.id })
+          .from(prescriptions)
+          .where(
+            and(
+              eq(prescriptions.patient_id, id),
+              eq(prescriptions.prescriptionDate, today)
+            )
+          )
+          .limit(1);
+
+        if (!prescription) {
+          // Patient is sitting in vitals queue or doctor queue — block re-entry
+          return res.status(409).json({
+            error: "Patient is already waiting in the queue. Token cannot be regenerated until the doctor ends their session."
+          });
+        }
+        // else: doctor session done, fall through and allow a fresh token
+      }
+    }
+
+    const freshToken = await getNextToken();
 
     let result;
 
@@ -440,7 +480,7 @@ router.get('/today-queue', authenticate, async (req, res) => {
           bp: (v.Systolic && v.Diastolic) ? `${v.Systolic}/${v.Diastolic}` : '—',
           pulse: v.PulseRate ?? '—',
           weight: v.Weight ?? '—',
-          BloodOxygen:v.BloodOxygen ?? '—',
+          BloodOxygen: v.BloodOxygen ?? '—',
           bmi: v.bmi ?? '—',
         } : null,
       };

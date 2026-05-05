@@ -504,10 +504,11 @@ router.get('/today-queue', authenticate, async (req, res) => {
       });
 
     // Step 5: completed — one row PER PRESCRIPTION so returning patients show twice
+    // Step 5: completed — one row PER PRESCRIPTION so returning patients show twice
     const completedQueue = await db
       .select({
         prescriptionId: prescriptions.id,
-        token: prescriptions.token,
+        prescriptionToken: prescriptions.token,
         diagnosis: prescriptions.diagnosis,
         prescriptionTime: prescriptions.prescriptionTime,
         patientId: all_entries.id,
@@ -522,23 +523,47 @@ router.get('/today-queue', authenticate, async (req, res) => {
       .where(eq(prescriptions.prescriptionDate, today))
       .orderBy(desc(prescriptions.prescriptionTime));
 
+    // Fetch symptoms from vitals matched by patient_id AND token
+    const completedPatientIds = completedQueue.map(c => c.patientId);
+    const completedTokens = completedQueue.map(c => c.prescriptionToken);
+
+    const completedVitals = completedPatientIds.length > 0
+      ? await db
+        .select({
+          patient_id: vitals.patient_id,
+          token: vitals.token,
+          symptoms: vitals.symptoms,
+        })
+        .from(vitals)
+        .where(sql`${vitals.patient_id} = ANY(ARRAY[${sql.join(completedPatientIds.map(id => sql`${id}::uuid`), sql`, `)}])`)
+      : [];
+
+    // Map symptoms by "patientId-token" so each visit gets its own symptoms
+    const symptomsMap = new Map<string, string | null>();
+    for (const v of completedVitals) {
+      const key = `${v.patient_id}-${v.token}`;
+      if (!symptomsMap.has(key)) {
+        symptomsMap.set(key, v.symptoms);
+      }
+    }
+
     res.json({
       success: true,
       patients: activeQueue,
       completed: completedQueue.map(c => ({
         id: c.patientId,
         prescriptionId: c.prescriptionId,
-        token: c.token,
+        token: c.prescriptionToken,
         firstName: c.firstName,
         lastName: c.lastName,
         phoneNumber: c.phoneNumber,
         age: c.age,
         gender: c.gender,
         diagnosis: c.diagnosis,
+        symptoms: symptomsMap.get(`${c.patientId}-${c.prescriptionToken}`) ?? null,
         isCompleted: true,
       })),
     });
-
   } catch (err: any) {
     console.error("TODAY QUEUE ERROR:", err);
     res.status(500).json({ error: "Failed to load today's queue" });

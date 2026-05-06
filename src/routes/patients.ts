@@ -250,8 +250,24 @@ router.get('/verify-token/:token', authenticate, async (req, res) => {
       return res.status(404).json({ success: false, error: "Invalid or expired token for today" });
     }
 
-    if (patient.vitalsRecorded && patient.tokenDate === today) {
-      return res.status(409).json({ success: false, error: "Token already used today" });
+    // Check if this token already has a prescription (session ended)
+    const [prescription] = await db
+      .select({ id: prescriptions.id })
+      .from(prescriptions)
+      .where(
+        and(
+          eq(prescriptions.patient_id, patient.id),
+          eq(prescriptions.prescriptionDate, today),
+          eq(prescriptions.token, patient.token!)
+        )
+      )
+      .limit(1);
+
+    if (prescription) {
+      return res.status(409).json({
+        success: false,
+        error: "Token already used today"
+      });
     }
 
     res.json({

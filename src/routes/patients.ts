@@ -523,7 +523,8 @@ router.get('/today-queue', authenticate, async (req, res) => {
       });
 
     // Step 5: completed — one row PER PRESCRIPTION so returning patients show twice
-    // Step 5: completed — one row PER PRESCRIPTION so returning patients show twice
+    // Step 5: completed — join prescriptions WITH vitals on same token
+    // This guarantees one row per actual visit (vitals prove the visit happened)
     const completedQueue = await db
       .select({
         prescriptionId: prescriptions.id,
@@ -536,35 +537,20 @@ router.get('/today-queue', authenticate, async (req, res) => {
         phoneNumber: all_entries.phoneNumber,
         age: all_entries.age,
         gender: all_entries.gender,
+        symptoms: vitals.symptoms,
+        patientType: vitals.patientType,
       })
       .from(prescriptions)
       .innerJoin(all_entries, eq(prescriptions.patient_id, all_entries.id))
+      .innerJoin(
+        vitals,
+        and(
+          eq(vitals.patient_id, prescriptions.patient_id),
+          eq(vitals.token, prescriptions.token)
+        )
+      )
       .where(eq(prescriptions.prescriptionDate, today))
       .orderBy(desc(prescriptions.prescriptionTime));
-
-    // Fetch symptoms from vitals matched by patient_id AND token
-    const completedPatientIds = completedQueue.map(c => c.patientId);
-    const completedTokens = completedQueue.map(c => c.prescriptionToken);
-
-    const completedVitals = completedPatientIds.length > 0
-      ? await db
-        .select({
-          patient_id: vitals.patient_id,
-          token: vitals.token,
-          symptoms: vitals.symptoms,
-        })
-        .from(vitals)
-        .where(sql`${vitals.patient_id} = ANY(ARRAY[${sql.join(completedPatientIds.map(id => sql`${id}::uuid`), sql`, `)}])`)
-      : [];
-
-    // Map symptoms by "patientId-token" so each visit gets its own symptoms
-    const symptomsMap = new Map<string, string | null>();
-    for (const v of completedVitals) {
-      const key = `${v.patient_id}-${v.token}`;
-      if (!symptomsMap.has(key)) {
-        symptomsMap.set(key, v.symptoms);
-      }
-    }
 
     res.json({
       success: true,
@@ -579,7 +565,8 @@ router.get('/today-queue', authenticate, async (req, res) => {
         age: c.age,
         gender: c.gender,
         diagnosis: c.diagnosis,
-        symptoms: symptomsMap.get(`${c.patientId}-${c.prescriptionToken}`) ?? null,
+        symptoms: c.symptoms ?? null,
+        patientType: c.patientType ?? 'Walk-in',
         isCompleted: true,
       })),
     });

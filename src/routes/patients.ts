@@ -319,15 +319,23 @@ router.get('/today-stats', authenticate, async (req, res) => {
   }).format(new Date());
 
   try {
-    const [tokenCount] = await db
-      .select({ total: sql<number>`count(*)` })
-      .from(all_entries)
-      .where(eq(all_entries.tokenDate, today));
-
     const [prescriptionCount] = await db
       .select({ total: sql<number>`count(*)` })
       .from(prescriptions)
       .where(eq(prescriptions.prescriptionDate, today));
+
+    const [withoutPrescription] = await db
+      .select({ total: sql<number>`count(*)` })
+      .from(all_entries)
+      .where(and(
+        eq(all_entries.tokenDate, today),
+        sql`not exists (
+          select 1 from ${prescriptions}
+          where ${prescriptions.patient_id} = ${all_entries.id}
+          and ${prescriptions.prescriptionDate} = ${today}
+          and ${prescriptions.token} = ${all_entries.token}
+        )`
+      ));
 
     const [queueCount] = await db
       .select({ total: sql<number>`count(*)` })
@@ -345,7 +353,7 @@ router.get('/today-stats', authenticate, async (req, res) => {
 
     res.json({
       success: true,
-      todayPatients: tokenCount.total || 0,
+      todayPatients: (Number(withoutPrescription.total) + Number(prescriptionCount.total)) || 0,
       inQueue: queueCount.total || 0,
       completed: prescriptionCount.total || 0,
     });

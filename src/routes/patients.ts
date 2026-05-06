@@ -546,7 +546,14 @@ router.get('/today-queue', authenticate, async (req, res) => {
         vitals,
         and(
           eq(vitals.patient_id, prescriptions.patient_id),
-          eq(vitals.token, prescriptions.token)
+          eq(vitals.token, prescriptions.token),
+          eq(vitals.id, sql`(
+            select id from vitals v2
+            where v2.patient_id = ${prescriptions.patient_id}
+            and v2.token = ${prescriptions.token}
+            order by v2.created_date desc, v2.created_time desc
+            limit 1
+          )`)
         )
       )
       .where(eq(prescriptions.prescriptionDate, today))

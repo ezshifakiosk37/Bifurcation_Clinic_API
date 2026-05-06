@@ -639,4 +639,39 @@ router.get('/get-all-prescriptions-today', authenticate, async (req: any, res) =
   }
 });
 
+// ─────────────────────────────────────────────
+// 8. VITALS QUEUE — patients with token today but vitals NOT recorded
+// ─────────────────────────────────────────────
+router.get('/vitals-queue', authenticate, async (req, res) => {
+  const today = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Karachi',
+    year: 'numeric', month: '2-digit', day: '2-digit',
+  }).format(new Date());
+
+  try {
+    const patients = await db
+      .select({
+        id: all_entries.id,
+        token: all_entries.token,
+        firstName: all_entries.firstName,
+        lastName: all_entries.lastName,
+        phoneNumber: all_entries.phoneNumber,
+        age: all_entries.age,
+        gender: all_entries.gender,
+        tokenTime: all_entries.tokenTime,
+      })
+      .from(all_entries)
+      .where(and(
+        eq(all_entries.tokenDate, today),
+        eq(all_entries.vitalsRecorded, false)
+      ))
+      .orderBy(all_entries.tokenTime);
+
+    res.json({ success: true, patients });
+  } catch (err: any) {
+    console.error("VITALS QUEUE ERROR:", err);
+    res.status(500).json({ error: "Failed to load vitals queue" });
+  }
+});
+
 export default router;

@@ -690,4 +690,31 @@ router.get('/vitals-queue', authenticate, async (req, res) => {
   }
 });
 
+router.get('/latest-vitals/:patientId/:token', authenticate, async (req, res) => {
+  const { patientId, token } = req.params;
+
+  const today = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Karachi',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(new Date());
+
+  const latest = await db
+    .select()
+    .from(vitals)
+    .where(and(
+      sql`${vitals.patient_id} = ${patientId}`,
+      sql`${vitals.token} = ${token}`,
+      eq(vitals.createdDate, today)
+    ))
+    .orderBy(desc(vitals.createdTime))
+    .limit(1);
+
+  res.json({
+    success: true,
+    vital: latest[0] || null
+  });
+});
+
 export default router;

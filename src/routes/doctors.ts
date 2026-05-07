@@ -293,7 +293,7 @@ router.post('/logout', authenticateDoctor, async (req: any, res: any) => {
 // ─────────────────────────────────────────────
 // 5. GET ASSIGNED DOCTOR BY USER ID
 // ─────────────────────────────────────────────
-router.get('/assigned-doctor/:userId', async (req: any, res: any) => {
+router.get('/assigned-doctor/:userId', authenticate, async (req: any, res: any) => {
   const { userId } = req.params;
 
   try {

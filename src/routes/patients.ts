@@ -717,4 +717,57 @@ router.get('/latest-vitals/:patientId/:token', authenticate, async (req, res) =>
   });
 });
 
+// GET /api/patients/by-vitals/:vitalsId
+router.get('/patient-by-vitals/:vitalsId', authenticateDoctor, async (req: any, res: any) => {
+  const { vitalsId } = req.params;
+
+  try {
+    // 1. Get patient_id and token from vitals record
+    const vitalRecord = await db
+      .select({
+        patient_id: vitals.patient_id,
+        token: vitals.token,
+      })
+      .from(vitals)
+      .where(eq(vitals.id, vitalsId))
+      .limit(1);
+
+    if (!vitalRecord.length) {
+      return res.status(404).json({ error: "Vitals record not found" });
+    }
+
+    const { patient_id, token: vitalsToken } = vitalRecord[0];
+
+    // 2. Get patient details from all_entries
+    const patient = await db
+      .select({
+        id: all_entries.id,
+        firstName: all_entries.firstName,
+        lastName: all_entries.lastName,
+        phoneNumber: all_entries.phoneNumber,
+        token: all_entries.token, // current token (may be same as vitalsToken)
+      })
+      .from(all_entries)
+      .where(eq(all_entries.id, patient_id))
+      .limit(1);
+
+    if (!patient.length) {
+      return res.status(404).json({ error: "Patient not found" });
+    }
+
+    // Return the data needed for prescription
+    res.json({
+      success: true,
+      patientId: patient[0].id,
+      token: patient[0].token,          // current daily token
+      vitalsToken: vitalsToken,         // token used for this vitals session
+      firstName: patient[0].firstName,
+      lastName: patient[0].lastName,
+    });
+  } catch (err: any) {
+    console.error("GET PATIENT BY VITALS ID ERROR:", err);
+    res.status(500).json({ error: "Failed to fetch patient", details: err.message });
+  }
+});
+
 export default router;

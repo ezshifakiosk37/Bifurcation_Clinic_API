@@ -238,7 +238,7 @@ router.get('/me', authenticateDoctor, async (req: any, res: any) => {
 
 router.patch('/status', authenticateDoctor, async (req: any, res: any) => {
   const doctorId = req.doctor.doctorId;
-  const { status } = req.body;
+  const { status, reason } = req.body;
 
   if (!['online', 'offline'].includes(status)) {
     return res.status(400).json({ error: 'Status must be "online" or "offline"' });
@@ -253,6 +253,16 @@ router.patch('/status', authenticateDoctor, async (req: any, res: any) => {
       .returning({ id: doctors.id, doctorStatus: doctors.doctorStatus });
 
     if (!updated) return res.status(404).json({ error: 'Doctor not found' });
+
+    // Write a log entry: action=login, reason="offline:<reason>" for going offline
+    const logReason = status === 'offline' ? `offline:${reason || 'No reason provided'}` : 'online';
+    await db.insert(doctor_logs).values({
+      doctor_id: doctorId,
+      action: 'login',
+      reason: logReason,
+      createdDate: date,
+      createdTime: time,
+    });
 
     res.json({ success: true, doctorStatus: updated.doctorStatus });
   } catch (err: any) {

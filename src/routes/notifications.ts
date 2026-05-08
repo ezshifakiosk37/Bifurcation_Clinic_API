@@ -84,8 +84,7 @@ router.post('/alert-doctor', authenticateDoctor, async (req: any, res: Response)
         if (!doctor) return res.status(404).json({ error: "Doctor not found." });
         if (!doctor.fcmToken) return res.status(400).json({ error: "Doctor has no active FCM token." });
 
-        // 2. Fetch Patient Name automatically using vitalsId
-        // This allows you to remove patientName from the frontend entirely
+        // 2. Fetch Patient Name
         const [patientData] = await db.select({
             firstName: all_entries.firstName,
             lastName: all_entries.lastName
@@ -99,7 +98,14 @@ router.post('/alert-doctor', authenticateDoctor, async (req: any, res: Response)
             ? `${patientData.firstName} ${patientData.lastName}`
             : "A patient";
 
-        // 3. Construct and Send Message
+        // ✅ 3. Reset call status to 'pending' before alerting
+        await db.update(vitals)
+            .set({ callStatus: 'idle' })
+            .where(eq(vitals.id, String(vitalsId)));
+
+        console.log("✅ callStatus reset to 'pending' for vitalsId:", vitalsId);
+
+        // 4. Construct and Send FCM Message
         const message = {
             notification: {
                 title: "New Patient Calling",
@@ -108,7 +114,6 @@ router.post('/alert-doctor', authenticateDoctor, async (req: any, res: Response)
             data: {
                 type: "INCOMING_CALL",
                 vitalsId: String(vitalsId),
-                // Ensure the doctor app knows where to go
                 click_action: `/doctor/dashboard/call/${vitalsId}`
             },
             token: doctor.fcmToken,
@@ -117,12 +122,11 @@ router.post('/alert-doctor', authenticateDoctor, async (req: any, res: Response)
         await messaging.send(message);
         return res.json({ success: true, message: "Doctor notified." });
 
-        // notifications.ts — in the alert-doctor catch block
     } catch (err: any) {
-        console.error("❌ FCM ALERT ERROR:", err.code, err.message, err); // ← add err.code
+        console.error("❌ FCM ALERT ERROR:", err.code, err.message, err);
         return res.status(500).json({
             error: "Internal server error during notification.",
-            debug: err.code || err.message  // ← temporarily expose this
+            debug: err.code || err.message
         });
     }
 });

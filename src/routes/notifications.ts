@@ -84,10 +84,11 @@ router.post('/alert-doctor', authenticateDoctor, async (req: any, res: Response)
         if (!doctor) return res.status(404).json({ error: "Doctor not found." });
         if (!doctor.fcmToken) return res.status(400).json({ error: "Doctor has no active FCM token." });
 
-        // 2. Fetch Patient Name
+        // 2. Fetch Patient Name + Token
         const [patientData] = await db.select({
             firstName: all_entries.firstName,
-            lastName: all_entries.lastName
+            lastName: all_entries.lastName,
+            token: vitals.token,           // ✅ grab token from vitals
         })
             .from(vitals)
             .innerJoin(all_entries, eq(vitals.patient_id, all_entries.id))
@@ -98,9 +99,9 @@ router.post('/alert-doctor', authenticateDoctor, async (req: any, res: Response)
             ? `${patientData.firstName} ${patientData.lastName}`
             : "A patient";
 
-        // ✅ 3. Reset call status to 'pending' before alerting
+        // 3. Reset call status to 'pending' before alerting
         await db.update(vitals)
-            .set({ callStatus: 'idle' })
+            .set({ callStatus: 'pending' })
             .where(eq(vitals.id, String(vitalsId)));
 
         console.log("✅ callStatus reset to 'pending' for vitalsId:", vitalsId);
@@ -114,12 +115,14 @@ router.post('/alert-doctor', authenticateDoctor, async (req: any, res: Response)
             data: {
                 type: "INCOMING_CALL",
                 vitalsId: String(vitalsId),
-                click_action: `/doctor/dashboard/call/${vitalsId}`
+                click_action: `/doctor/dashboard/call/${vitalsId}`,
+                token: String(patientData?.token ?? ''),   // ✅ include patient token
             },
             token: doctor.fcmToken,
         };
 
         await messaging.send(message);
+        console.log("✅ FCM sent to doctor:", doctorId, "with patient token:", patientData?.token);
         return res.json({ success: true, message: "Doctor notified." });
 
     } catch (err: any) {

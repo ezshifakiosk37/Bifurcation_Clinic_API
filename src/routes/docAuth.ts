@@ -1,7 +1,7 @@
 // routes/docAuth.ts
 import { Router } from 'express';
 import { db } from '../db';
-import { doctors } from '../db/schema';
+import { doctors,doctor_logs } from '../db/schema';
 import { eq } from 'drizzle-orm';
 import jwt from 'jsonwebtoken';
 
@@ -35,6 +35,15 @@ router.post('/login', async (req, res) => {
       process.env.JWT_SECRET!,
       { expiresIn: '30d' }
     );
+    // Log the login action
+    const { date: logDate, time: logTime } = (() => {
+      const now = new Date();
+      const date = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Karachi', year: 'numeric', month: '2-digit', day: '2-digit' }).format(now);
+      const time = new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Karachi', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }).format(now);
+      return { date, time };
+    })();
+    await db.insert(doctor_logs).values({ doctor_id: doctor.id, action: 'login', reason: 'online', createdDate: logDate, createdTime: logTime });
+    await db.update(doctors).set({ doctorStatus: 'online', updatedDate: logDate, updatedTime: logTime }).where(eq(doctors.id, doctor.id));
 
     res.json({
       success: true,

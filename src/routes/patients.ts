@@ -583,9 +583,16 @@ router.get('/today-queue', authenticate, async (req: any, res) => {
           )`)
         )
       )
-      .where(eq(prescriptions.prescriptionDate, today))
+      .where(
+        doctorId
+          ? and(
+            eq(prescriptions.prescriptionDate, today),
+            eq(prescriptions.doctor_id, doctorId)
+          )
+          : eq(prescriptions.prescriptionDate, today)
+      )
       .orderBy(desc(prescriptions.prescriptionTime));
-
+      
     res.json({
       success: true,
       patients: activeQueue,

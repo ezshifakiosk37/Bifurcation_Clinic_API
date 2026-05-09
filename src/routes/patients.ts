@@ -619,9 +619,14 @@ router.get('/today-queue', authenticate, async (req: any, res) => {
 
 router.get('/get-all-prescriptions-today', authenticate, async (req: any, res) => {
   try {
-    const today = new Date().toISOString().split('T')[0];
+    const today = new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'Asia/Karachi',
+      year: 'numeric', month: '2-digit', day: '2-digit',
+    }).format(new Date());
 
-    // 1. Get today's prescriptions + patient info
+    const tokenFilter = req.query.token as string | undefined;
+
+    // 1. Get today's prescriptions + patient info (filtered by token if provided)
     const data = await db
       .select({
         prescription: prescriptions,
@@ -635,9 +640,13 @@ router.get('/get-all-prescriptions-today', authenticate, async (req: any, res) =
       })
       .from(prescriptions)
       .innerJoin(all_entries, eq(all_entries.id, prescriptions.patient_id))
-      .where(eq(prescriptions.prescriptionDate, today))
+      .where(
+        tokenFilter
+          ? and(eq(prescriptions.prescriptionDate, today), eq(prescriptions.token, tokenFilter))
+          : eq(prescriptions.prescriptionDate, today)
+      )
       .orderBy(desc(prescriptions.createdTime));
-
+      
     if (!data.length) {
       return res.json({ success: true, data: [] });
     }

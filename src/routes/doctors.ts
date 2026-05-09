@@ -333,5 +333,25 @@ router.get('/assigned-doctor/:userId', authenticate, async (req: any, res: any) 
   }
 });
 
+// GET all doctors (staff token)
+router.get('/all', authenticate, async (req: any, res: any) => {
+  try {
+    const all = await db.select({
+      id: doctors.id,
+      title: doctors.title,
+      firstName: doctors.firstName,
+      lastName: doctors.lastName,
+      photo: doctors.photo,
+      specializations: doctors.specializations,
+      experience: doctors.experience,
+      doctorStatus: doctors.doctorStatus,
+    }).from(doctors);
+
+    res.json({ success: true, doctors: all });
+  } catch (err: any) {
+    res.status(500).json({ error: 'Failed to fetch doctors' });
+  }
+});
+
 export default router;
 export { authenticateDoctor as docAuth };

@@ -328,17 +328,23 @@ router.post('/save-vitals', authenticate, async (req: any, res: any) => {
 // ─────────────────────────────────────────────
 // 5. TODAY'S DASHBOARD STATS (for page.tsx)
 // ─────────────────────────────────────────────
-router.get('/today-stats', authenticate, async (req, res) => {
+router.get('/today-stats', authenticate, async (req: any, res) => {
   const today = new Intl.DateTimeFormat('en-CA', {
     timeZone: 'Asia/Karachi',
     year: 'numeric', month: '2-digit', day: '2-digit',
   }).format(new Date());
 
+  const doctorId = req.query.doctorId as string | undefined;
+
   try {
     const [prescriptionCount] = await db
       .select({ total: sql<number>`count(*)` })
       .from(prescriptions)
-      .where(eq(prescriptions.prescriptionDate, today));
+      .where(
+        doctorId
+          ? and(eq(prescriptions.prescriptionDate, today), eq(prescriptions.doctor_id, doctorId))
+          : eq(prescriptions.prescriptionDate, today)
+      );
 
     const [withoutPrescription] = await db
       .select({ total: sql<number>`count(*)` })
@@ -434,7 +440,8 @@ router.post('/save-prescription', authenticateDoctor, async (req: any, res: any)
 // ─────────────────────────────────────────────
 // 7. TODAY'S QUEUE (deduped — one row per patient)
 // ─────────────────────────────────────────────
-router.get('/today-queue', authenticate, async (req, res) => {
+router.get('/today-queue', authenticate, async (req: any, res) => {
+  const doctorId = req.query.doctorId as string | undefined;
   const today = new Intl.DateTimeFormat('en-CA', {
     timeZone: 'Asia/Karachi',
     year: 'numeric', month: '2-digit', day: '2-digit',
@@ -462,7 +469,11 @@ router.get('/today-queue', authenticate, async (req, res) => {
     const completedToday = await db
       .select({ patient_id: prescriptions.patient_id, token: prescriptions.token })
       .from(prescriptions)
-      .where(eq(prescriptions.prescriptionDate, today));
+      .where(
+        doctorId
+          ? and(eq(prescriptions.prescriptionDate, today), eq(prescriptions.doctor_id, doctorId as string))
+          : eq(prescriptions.prescriptionDate, today)
+      );
 
     // A patient is only "completed" if their CURRENT token matches the prescription token
     // This handles returning patients who get a new token after doctor session ends

@@ -333,7 +333,9 @@ router.get('/assigned-doctor/:userId', authenticate, async (req: any, res: any) 
   }
 });
 
-// GET all doctors (staff token)
+// ─────────────────────────────────────────────
+// 6. GET ALL DOCTORS
+// ─────────────────────────────────────────────
 router.get('/all', authenticate, async (req: any, res: any) => {
   try {
     const all = await db.select({
@@ -349,7 +351,8 @@ router.get('/all', authenticate, async (req: any, res: any) => {
 
     res.json({ success: true, doctors: all });
   } catch (err: any) {
-    res.status(500).json({ error: 'Failed to fetch doctors' });
+    console.error('FETCH ALL DOCTORS ERROR:', err);
+    res.status(500).json({ error: 'Failed to fetch doctors', details: err.message });
   }
 });
 

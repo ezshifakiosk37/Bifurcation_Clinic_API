@@ -67,7 +67,7 @@ router.post('/save-doctor-token', authenticate, async (req: any, res: Response) 
 });
 
 // --- PATIENT CALLS THIS TO START THE CALL ---
-router.post('/alert-doctor', authenticateDoctor, async (req: any, res: Response) => {
+router.post('/alert-doctor', authenticate, async (req: any, res: Response) => {
     const { doctorId, vitalsId } = req.body;
 
     if (!isMessagingReady()) {

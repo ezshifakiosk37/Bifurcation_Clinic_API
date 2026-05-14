@@ -128,7 +128,7 @@ router.post('/alert-doctor', authenticate, async (req: any, res: Response) => {
         return res.json({ success: true, message: "Doctor notified." });
 
     } catch (err: any) {
-        // ✅ Stale token: wipe it from DB so doctor is prompted to re-register
+        // ✅ Stale token: wipe it from DB so doctor is prompted to reregister
         if (err.code === 'messaging/registration-token-not-registered') {
             console.warn("⚠️ Stale FCM token detected for doctor:", doctorId, "— clearing from DB.");
             await db.update(doctors)

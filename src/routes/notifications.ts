@@ -50,7 +50,7 @@ router.post('/save-doctor-token', authenticate, async (req: any, res: Response) 
 
     try {
         await db.update(doctors)
-            .set({ fcmToken:token })
+            .set({ fcmToken: token })
             .where(eq(doctors.id, doctorId));
 
         console.log("✅ Token saved in DB");
@@ -82,22 +82,24 @@ router.post('/alert-doctor', authenticate, async (req: any, res: Response) => {
             .limit(1);
 
         if (!doctor) return res.status(404).json({ error: "Doctor not found." });
-        if (!doctor.fcmToken) return res.status(400).json({ error: "Doctor has no active FCM token." });
+        if (!doctor.fcmToken) return res.status(400).json({ error: "Doctor is not available to receive calls right now." });
 
         // 2. Fetch Patient Name + Token
         const [patientData] = await db.select({
             firstName: all_entries.firstName,
             lastName: all_entries.lastName,
-            token: vitals.token,           // ✅ grab token from vitals
+            token: vitals.token,
         })
             .from(vitals)
             .innerJoin(all_entries, eq(vitals.patient_id, all_entries.id))
             .where(eq(vitals.id, String(vitalsId)))
             .limit(1);
 
-        const displayName = patientData
-            ? `${patientData.firstName} ${patientData.lastName}`
-            : "A patient";
+        if (!patientData) {
+            return res.status(404).json({ error: "Patient vitals record not found." });
+        }
+
+        const displayName = `${patientData.firstName} ${patientData.lastName}`;
 
         // 3. Reset call status to 'pending' before alerting
         await db.update(vitals)
@@ -115,21 +117,37 @@ router.post('/alert-doctor', authenticate, async (req: any, res: Response) => {
             data: {
                 type: "INCOMING_CALL",
                 vitalsId: String(vitalsId),
-                click_action: `/doctor/dashboard/call/${vitalsId}`,
-                token: String(patientData?.token ?? ''),   // ✅ include patient token
+                click_action: `/doctor/dashboard/video-call/${vitalsId}`,
+                token: String(patientData.token ?? ''),
             },
             token: doctor.fcmToken,
         };
 
         await messaging.send(message);
-        console.log("✅ FCM sent to doctor:", doctorId, "with patient token:", patientData?.token);
+        console.log("✅ FCM sent to doctor:", doctorId, "with patient token:", patientData.token);
         return res.json({ success: true, message: "Doctor notified." });
 
     } catch (err: any) {
-        console.error("❌ FCM ALERT ERROR:", err.code, err.message, err);
+        // ✅ Stale token: wipe it from DB so doctor is prompted to re-register
+        if (err.code === 'messaging/registration-token-not-registered') {
+            console.warn("⚠️ Stale FCM token detected for doctor:", doctorId, "— clearing from DB.");
+            await db.update(doctors)
+                .set({ fcmToken: null })
+                .where(eq(doctors.id, String(doctorId)));
+
+            return res.status(410).json({
+                error: "Doctor's notification token is outdated. They need to reopen the app to reconnect.",
+            });
+        }
+
+        console.error("❌ FCM ALERT ERROR:", {
+            code: err.code,
+            message: err.message,
+            errorInfo: err.errorInfo,
+        });
         return res.status(500).json({
             error: "Internal server error during notification.",
-            debug: err.code || err.message
+            debug: err.code || err.message,
         });
     }
 });
@@ -163,7 +181,7 @@ router.get('/call-status/:vitalsId', authenticate, async (req: Request, res: Res
 
     try {
         const [record] = await db.select({
-            status: vitals.callStatus 
+            status: vitals.callStatus
         })
             .from(vitals)
             .where(eq(vitals.id, String(vitalsId)))
@@ -173,9 +191,9 @@ router.get('/call-status/:vitalsId', authenticate, async (req: Request, res: Res
             return res.status(404).json({ error: "Session not found" });
         }
 
-        return res.json({ 
-            success: true, 
-            status: record.status || 'idle' 
+        return res.json({
+            success: true,
+            status: record.status || 'idle'
         });
 
     } catch (err: any) {
@@ -186,31 +204,31 @@ router.get('/call-status/:vitalsId', authenticate, async (req: Request, res: Res
 
 // POST /api/notifications/end-call
 router.post('/end-call', authenticate, async (req: any, res: Response) => {
-  const { vitalsId, reason } = req.body; // Add 'reason' here
-  console.log(reason)
+    const { vitalsId, reason } = req.body; // Add 'reason' here
+    console.log(reason)
 
-  if (!vitalsId) {
-    return res.status(400).json({ error: "Vitals ID required" });
-  }
+    if (!vitalsId) {
+        return res.status(400).json({ error: "Vitals ID required" });
+    }
 
-  // Determine the specific status to save
-  // Possible values: 'declined_by_patient', 'declined_by_doctor', 'doctor_not_responding'
-  const finalStatus = reason || 'default';
+    // Determine the specific status to save
+    // Possible values: 'declined_by_patient', 'declined_by_doctor', 'doctor_not_responding'
+    const finalStatus = reason || 'default';
 
-  try {
-    await db.update(vitals)
-      .set({ 
-        callStatus: finalStatus, 
-        roomName: null 
-      })
-      .where(eq(vitals.id, String(vitalsId)));
+    try {
+        await db.update(vitals)
+            .set({
+                callStatus: finalStatus,
+                roomName: null
+            })
+            .where(eq(vitals.id, String(vitalsId)));
 
-    console.log(`🧹 Session ${vitalsId} set to: ${finalStatus}`);
-    return res.json({ success: true, status: finalStatus });
+        console.log(`🧹 Session ${vitalsId} set to: ${finalStatus}`);
+        return res.json({ success: true, status: finalStatus });
 
-  } catch (err: any) {
-    return res.status(500).json({ error: 'Failed to update status' });
-  }
+    } catch (err: any) {
+        return res.status(500).json({ error: 'Failed to update status' });
+    }
 });
 
 export default router;

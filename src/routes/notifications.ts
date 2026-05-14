@@ -3,7 +3,7 @@ import { db } from '../db';
 import { all_entries, doctors, vitals } from '../db/schema';
 import { eq } from 'drizzle-orm';
 import { messaging } from '../lib/firebase-admin';
-import { authenticate } from '../middleware/auth';
+import { authenticate, authenticateAny } from '../middleware/auth';
 import { authenticateDoctor } from './doctors';
 
 const router = Router();
@@ -175,8 +175,7 @@ router.post('/accept-call', authenticateDoctor, async (req: any, res: Response) 
 });
 
 // --- PATIENT POLLS THIS TO CHECK IF DOCTOR JOINED ---
-// We use the regular authenticate here because the Kiosk is calling this
-router.get('/call-status/:vitalsId', authenticate, async (req: Request, res: Response) => {
+router.get('/call-status/:vitalsId', authenticateAny, async (req: any, res: Response) => {
     const { vitalsId } = req.params;
 
     try {
@@ -202,17 +201,14 @@ router.get('/call-status/:vitalsId', authenticate, async (req: Request, res: Res
     }
 });
 
-// POST /api/notifications/end-call
-router.post('/end-call', authenticate, async (req: any, res: Response) => {
-    const { vitalsId, reason } = req.body; // Add 'reason' here
-    console.log(reason)
+router.post('/end-call', authenticateAny, async (req: any, res: Response) => {
+    const { vitalsId, reason } = req.body;
+    console.log(reason);
 
     if (!vitalsId) {
         return res.status(400).json({ error: "Vitals ID required" });
     }
 
-    // Determine the specific status to save
-    // Possible values: 'declined_by_patient', 'declined_by_doctor', 'doctor_not_responding'
     const finalStatus = reason || 'default';
 
     try {

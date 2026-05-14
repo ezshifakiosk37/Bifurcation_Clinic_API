@@ -176,7 +176,7 @@ router.post('/accept-call', authenticateDoctor, async (req: any, res: Response) 
 
 // --- PATIENT POLLS THIS TO CHECK IF DOCTOR JOINED ---
 // We use the regular authenticate here because the Kiosk is calling this
-router.get('/call-status/:vitalsId', authenticate, async (req: Request, res: Response) => {
+router.get('/call-status/:vitalsId', async (req: Request, res: Response) => {
     const { vitalsId } = req.params;
 
     try {

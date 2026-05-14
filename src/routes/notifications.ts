@@ -203,7 +203,7 @@ router.get('/call-status/:vitalsId', async (req: Request, res: Response) => {
 });
 
 // POST /api/notifications/end-call
-router.post('/end-call', authenticate, async (req: any, res: Response) => {
+router.post('/end-call', async (req: any, res: Response) => {
     const { vitalsId, reason } = req.body; // Add 'reason' here
     console.log(reason)
 

@@ -201,6 +201,28 @@ router.get('/call-status/:vitalsId', authenticateAny, async (req: any, res: Resp
     }
 });
 
+// --- DOCTOR CALLS THIS ON GOING OFFLINE ---
+router.delete('/remove-fcm-token', authenticateDoctor, async (req: any, res: Response) => {
+    const doctorId = req.user?.doctorId || req.user?.id || req.user?.userId;
+
+    if (!doctorId || typeof doctorId !== 'string') {
+        return res.status(401).json({ error: "Unauthorized" });
+    }
+
+    try {
+        await db.update(doctors)
+            .set({ fcmToken: null })
+            .where(eq(doctors.id, doctorId));
+
+        console.log(`✅ FCM token removed for doctor: ${doctorId}`);
+        return res.json({ success: true, message: "FCM token removed." });
+
+    } catch (err: any) {
+        console.error("❌ REMOVE FCM TOKEN ERROR:", err.message);
+        return res.status(500).json({ error: "Failed to remove FCM token.", details: err.message });
+    }
+});
+
 router.post('/end-call', authenticateAny, async (req: any, res: Response) => {
     const { vitalsId, reason } = req.body;
     console.log(reason);

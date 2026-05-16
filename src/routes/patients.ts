@@ -592,7 +592,7 @@ router.get('/today-queue', authenticate, async (req: any, res) => {
           : eq(prescriptions.prescriptionDate, today)
       )
       .orderBy(desc(prescriptions.prescriptionTime));
-      
+
     res.json({
       success: true,
       patients: activeQueue,
@@ -646,7 +646,7 @@ router.get('/get-all-prescriptions-today', authenticate, async (req: any, res) =
           : eq(prescriptions.prescriptionDate, today)
       )
       .orderBy(desc(prescriptions.createdTime));
-      
+
     if (!data.length) {
       return res.json({ success: true, data: [] });
     }
@@ -749,51 +749,76 @@ router.get('/patient-by-vitals/:vitalsId', authenticateDoctor, async (req: any, 
   const { vitalsId } = req.params;
 
   try {
-    // 1. Get patient_id and token from vitals record
-    const vitalRecord = await db
+    const result = await db
       .select({
+        // ── Vitals record ──────────────────────────────────────────────
         patient_id: vitals.patient_id,
-        token: vitals.token,
-      })
-      .from(vitals)
-      .where(eq(vitals.id, vitalsId))
-      .limit(1);
+        vitalsToken: vitals.token,
+        temp: vitals.Temperature,
+        systolic: vitals.Systolic,
+        diastolic: vitals.Diastolic,
+        pulse: vitals.PulseRate,
+        weight: vitals.Weight,
+        height: vitals.Height,
+        spo2: vitals.BloodOxygen,
+        symptoms: vitals.symptoms,
 
-    if (!vitalRecord.length) {
-      return res.status(404).json({ error: "Vitals record not found" });
-    }
-
-    const { patient_id, token: vitalsToken } = vitalRecord[0];
-
-    // 2. Get patient details from all_entries
-    const patient = await db
-      .select({
+        // ── Patient demographics ───────────────────────────────────────
         id: all_entries.id,
         firstName: all_entries.firstName,
         lastName: all_entries.lastName,
         phoneNumber: all_entries.phoneNumber,
-        token: all_entries.token, // current token (may be same as vitalsToken)
+        token: all_entries.token,
+        age: all_entries.age,
+        gender: all_entries.gender,
+        email: all_entries.email,
+        city: all_entries.city,
+        medicalHistory: all_entries.medicalHistory,
       })
-      .from(all_entries)
-      .where(eq(all_entries.id, patient_id))
+      .from(vitals)
+      .innerJoin(all_entries, eq(vitals.patient_id, all_entries.id))
+      .where(eq(vitals.id, vitalsId))
       .limit(1);
 
-    if (!patient.length) {
-      return res.status(404).json({ error: "Patient not found" });
+    if (!result.length) {
+      return res.status(404).json({ error: "Vitals record not found" });
     }
 
-    // Return the data needed for prescription
-    res.json({
+    const row = result[0];
+
+    return res.json({
       success: true,
-      patientId: patient[0].id,
-      token: patient[0].token,          // current daily token
-      vitalsToken: vitalsToken,         // token used for this vitals session
-      firstName: patient[0].firstName,
-      lastName: patient[0].lastName,
+
+      // For prescription + call routing
+      patientId: row.id,
+      token: row.token,
+      vitalsToken: row.vitalsToken,
+
+      // Demographics
+      firstName: row.firstName,
+      lastName: row.lastName,
+      age: row.age,
+      gender: row.gender,
+      phone: row.phoneNumber,
+      email: row.email,
+      city: row.city,
+      medicalHistory: row.medicalHistory,
+      symptoms: row.symptoms,
+
+      // Vitals nested for PatientInfoModal
+      vitals: {
+        temp: row.temp,
+        bp: row.systolic && row.diastolic ? `${row.systolic}/${row.diastolic}` : null,
+        pulse: row.pulse,
+        weight: row.weight,
+        height: row.height,
+        spo2: row.spo2,
+      },
     });
+
   } catch (err: any) {
     console.error("GET PATIENT BY VITALS ID ERROR:", err);
-    res.status(500).json({ error: "Failed to fetch patient", details: err.message });
+    return res.status(500).json({ error: "Failed to fetch patient", details: err.message });
   }
 });
 

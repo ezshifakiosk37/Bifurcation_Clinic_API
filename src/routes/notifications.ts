@@ -202,7 +202,7 @@ router.get('/call-status/:vitalsId', authenticateAny, async (req: any, res: Resp
 });
 
 // --- DOCTOR CALLS THIS ON GOING OFFLINE ---
-router.delete('/remove-fcm-token', authenticateDoctor, async (req: any, res: Response) => {
+router.delete('/remove-fcm-token', authenticate, async (req: any, res: Response) => {
     const doctorId = req.user?.doctorId || req.user?.id || req.user?.userId;
 
     if (!doctorId || typeof doctorId !== 'string') {

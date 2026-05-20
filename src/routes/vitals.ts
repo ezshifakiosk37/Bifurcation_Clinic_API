@@ -123,7 +123,7 @@ router.get('/history-by-phone/:phone', authenticate, async (req: any, res: any) 
       id: rec.id,
       token: rec.token,
       PulseRate: rec.PulseRate,
-      Spo2: rec.BloodOxygen,           // frontend expects Spo2
+      Spo2: rec.BloodOxygen,           // frontend expect Spo2
       BP: {
         value1: rec.Systolic,           // frontend expects BP.value1
         value2: rec.Diastolic,          // frontend expects BP.value2

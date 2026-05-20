@@ -270,13 +270,25 @@ router.get('/verify-token/:token', authenticateAny, async (req: any, res: any) =
     year: 'numeric', month: '2-digit', day: '2-digit',
   }).format(new Date());
 
+  // Resolve clinic user_id from either staff or doctor token
+  let scopedUserId: string | undefined;
+  if (req.user?.userId) {
+    scopedUserId = req.user.userId;
+  } else if (req.doctor?.doctorId) {
+    const [doc] = await db.select({ user_id: doctors.user_id })
+      .from(doctors)
+      .where(eq(doctors.id, req.doctor.doctorId))
+      .limit(1);
+    scopedUserId = doc?.user_id ?? undefined;
+  }
+
   try {
     const [patient] = await db.select()
       .from(all_entries)
       .where(and(
         eq(all_entries.token, token),
         eq(all_entries.tokenDate, today),
-        eq(all_entries.user_id, (req as any).user.userId)
+        ...(scopedUserId ? [eq(all_entries.user_id, scopedUserId)] : []),
       ))
       .orderBy(desc(all_entries.tokenDate), desc(all_entries.tokenTime))
       .limit(1);

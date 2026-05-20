@@ -70,10 +70,24 @@ router.post('/save', authenticate, async (req: any, res: any) => {
 
   try {
     const isValidId = id && id !== "null" && id !== "" && id !== undefined;
+
+    let effectiveId: string | null = isValidId ? id : null;
+
+    if (isValidId) {
+      const [ownerCheck] = await db
+        .select({ user_id: all_entries.user_id })
+        .from(all_entries)
+        .where(eq(all_entries.id, id))
+        .limit(1);
+
+      if (!ownerCheck || ownerCheck.user_id !== userId) {
+        effectiveId = null; // Different clinic or not found — force new insert
+      }
+    }
     const { createdDate, createdTime } = getNow();
 
     // ── GUARD: block re-tokenization if patient is already in vitals/doctor queue ──
-    if (isValidId) {
+    if (effectiveId) {
       const today = new Intl.DateTimeFormat('en-CA', {
         timeZone: 'Asia/Karachi',
         year: 'numeric', month: '2-digit', day: '2-digit',
@@ -86,7 +100,7 @@ router.post('/save', authenticate, async (req: any, res: any) => {
           token: all_entries.token,
         })
         .from(all_entries)
-        .where(and(eq(all_entries.id, id), eq(all_entries.user_id, userId)))
+        .where(and(eq(all_entries.id, effectiveId!), eq(all_entries.user_id, userId)))
         .limit(1);
 
       if (existing && existing.tokenDate === today) {
@@ -121,8 +135,8 @@ router.post('/save', authenticate, async (req: any, res: any) => {
 
     let result;
 
-    if (isValidId) {
-      // Returning patient — only update token + tokenDate/Time, never touch createdDate/Time
+    if (effectiveId) {
+      // Returning patient at same clinic — update token
       result = await db.update(all_entries)
         .set({
           user_id: userId,
@@ -149,11 +163,11 @@ router.post('/save', authenticate, async (req: any, res: any) => {
           medicineHistory: Array.isArray(req.body.medicineHistory) ? JSON.stringify(req.body.medicineHistory) : "[]",
           allergies: Array.isArray(req.body.allergies) ? JSON.stringify(req.body.allergies) : "[]",
         })
-        .where(and(eq(all_entries.id, id), eq(all_entries.user_id, userId)))
+        .where(and(eq(all_entries.id, effectiveId), eq(all_entries.user_id, userId)))
         .returning({ id: all_entries.id, token: all_entries.token });
 
     } else {
-      // New patient — set both createdDate/Time and tokenDate/Time
+      // New patient or cross-clinic visit — insert fresh row for this clinic
       result = await db.insert(all_entries)
         .values({
           user_id: userId,

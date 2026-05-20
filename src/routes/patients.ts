@@ -35,7 +35,7 @@ const getNow = () => {
 };
 
 // --- HELPER: GENERATE SEQUENTIAL DAILY TOKEN ---
-const getNextToken = async () => {
+const getNextToken = async (userId: string) => {
   try {
     const today = new Intl.DateTimeFormat('en-CA', {
       timeZone: 'Asia/Karachi',
@@ -45,8 +45,11 @@ const getNextToken = async () => {
     const lastEntry = await db
       .select({ token: all_entries.token })
       .from(all_entries)
-      .where(eq(all_entries.tokenDate, today))
-      .orderBy(desc(sql`cast(${all_entries.token} as integer)`))  // ← numeric sort
+      .where(and(
+        eq(all_entries.tokenDate, today),
+        eq(all_entries.user_id, userId),
+      ))
+      .orderBy(desc(sql`cast(${all_entries.token} as integer)`))
       .limit(1);
 
     if (lastEntry.length === 0 || !lastEntry[0].token) return "1";
@@ -114,7 +117,7 @@ router.post('/save', authenticate, async (req: any, res: any) => {
       }
     }
 
-    const freshToken = await getNextToken();
+    const freshToken = await getNextToken(userId);
 
     let result;
 
@@ -199,14 +202,30 @@ router.get('/', authenticate, async (req, res) => {
   if (!phone && !cnic) return res.status(400).json({ error: "Phone or CNIC required" });
 
   try {
-    const [entry] = await db.select().from(all_entries)
-      .where(
+    const { userId } = (req as any).user;
+
+    // First try to find a record belonging to this clinic
+    let [entry] = await db.select().from(all_entries)
+      .where(and(
         cnic
           ? eq(all_entries.cnic, cnic as string)
-          : eq(all_entries.phoneNumber, phone as string)
-      )
+          : eq(all_entries.phoneNumber, phone as string),
+        eq(all_entries.user_id, userId)
+      ))
       .orderBy(desc(all_entries.createdDate), desc(all_entries.createdTime))
       .limit(1);
+
+    // If not found at this clinic, fall back to any clinic (for pre-filling demographics)
+    if (!entry) {
+      [entry] = await db.select().from(all_entries)
+        .where(
+          cnic
+            ? eq(all_entries.cnic, cnic as string)
+            : eq(all_entries.phoneNumber, phone as string)
+        )
+        .orderBy(desc(all_entries.createdDate), desc(all_entries.createdTime))
+        .limit(1);
+    }
 
     if (!entry) return res.status(404).json({ error: "Patient not found" });
 
@@ -351,12 +370,13 @@ router.get('/today-stats', authenticate, async (req: any, res) => {
       .from(all_entries)
       .where(and(
         eq(all_entries.tokenDate, today),
+        eq(all_entries.user_id, req.user.userId),
         sql`not exists (
-          select 1 from ${prescriptions}
-          where ${prescriptions.patient_id} = ${all_entries.id}
-          and ${prescriptions.prescriptionDate} = ${today}
-          and ${prescriptions.token} = ${all_entries.token}
-        )`
+      select 1 from ${prescriptions}
+      where ${prescriptions.patient_id} = ${all_entries.id}
+      and ${prescriptions.prescriptionDate} = ${today}
+      and ${prescriptions.token} = ${all_entries.token}
+    )`
       ));
 
     const [queueCount] = await db
@@ -365,12 +385,13 @@ router.get('/today-stats', authenticate, async (req: any, res) => {
       .where(and(
         eq(all_entries.tokenDate, today),
         eq(all_entries.vitalsRecorded, true),
+        eq(all_entries.user_id, req.user.userId),
         sql`not exists (
-          select 1 from ${prescriptions}
-          where ${prescriptions.patient_id} = ${all_entries.id}
-          and ${prescriptions.prescriptionDate} = ${today}
-          and ${prescriptions.token} = ${all_entries.token}
-        )`
+      select 1 from ${prescriptions}
+      where ${prescriptions.patient_id} = ${all_entries.id}
+      and ${prescriptions.prescriptionDate} = ${today}
+      and ${prescriptions.token} = ${all_entries.token}
+    )`
       ));
 
     res.json({
@@ -462,7 +483,10 @@ router.get('/today-queue', authenticate, async (req: any, res) => {
         phoneNumber: all_entries.phoneNumber,
       })
       .from(all_entries)
-      .where(eq(all_entries.tokenDate, today))
+      .where(and(
+        eq(all_entries.tokenDate, today),
+        eq(all_entries.user_id, req.user.userId),
+      ))
       .orderBy(desc(all_entries.tokenTime));
 
     // Step 1b: get which patients already have a prescription today
@@ -642,8 +666,15 @@ router.get('/get-all-prescriptions-today', authenticate, async (req: any, res) =
       .innerJoin(all_entries, eq(all_entries.id, prescriptions.patient_id))
       .where(
         tokenFilter
-          ? and(eq(prescriptions.prescriptionDate, today), eq(prescriptions.token, tokenFilter))
-          : eq(prescriptions.prescriptionDate, today)
+          ? and(
+            eq(prescriptions.prescriptionDate, today),
+            eq(prescriptions.token, tokenFilter),
+            eq(all_entries.user_id, (req as any).user.userId)
+          )
+          : and(
+            eq(prescriptions.prescriptionDate, today),
+            eq(all_entries.user_id, (req as any).user.userId)
+          )
       )
       .orderBy(desc(prescriptions.createdTime));
 
@@ -706,7 +737,8 @@ router.get('/vitals-queue', authenticate, async (req, res) => {
       .from(all_entries)
       .where(and(
         eq(all_entries.tokenDate, today),
-        eq(all_entries.vitalsRecorded, false)
+        eq(all_entries.vitalsRecorded, false),
+        eq(all_entries.user_id, (req as any).user.userId),
       ))
       .orderBy(all_entries.tokenTime);
 

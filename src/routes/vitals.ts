@@ -3,7 +3,7 @@ import { Router } from 'express';
 import { db } from '../db';
 import { vitals, all_entries } from '../db/schema';
 import { authenticate } from '../middleware/auth';
-import { eq, desc } from 'drizzle-orm';
+import { eq, desc,and } from 'drizzle-orm';
 
 const router = Router();
 
@@ -81,7 +81,7 @@ router.patch('/update/:vitalsId', authenticate, async (req, res) => {
   }
 });
 
-router.get('/history-by-phone/:phone', authenticate, async (req, res) => {
+router.get('/history-by-phone/:phone', authenticate, async (req: any, res: any) => {
   const { phone } = req.params;
 
   if (typeof phone !== 'string') {
@@ -108,7 +108,10 @@ router.get('/history-by-phone/:phone', authenticate, async (req, res) => {
       })
       .from(vitals)
       .innerJoin(all_entries, eq(vitals.patient_id, all_entries.id))
-      .where(eq(all_entries.phoneNumber, phone))
+      .where(and(
+        eq(all_entries.phoneNumber, phone),
+        eq(all_entries.user_id, req.user.userId)
+      ))
       .orderBy(desc(vitals.createdDate), desc(vitals.createdTime));
 
     if (!history || history.length === 0) {

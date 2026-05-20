@@ -261,7 +261,8 @@ router.get('/verify-token/:token', authenticate, async (req, res) => {
       .from(all_entries)
       .where(and(
         eq(all_entries.token, token),
-        eq(all_entries.tokenDate, today)
+        eq(all_entries.tokenDate, today),
+        eq(all_entries.user_id, (req as any).user.userId)
       ))
       .orderBy(desc(all_entries.tokenDate), desc(all_entries.tokenTime))
       .limit(1);

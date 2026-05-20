@@ -263,7 +263,7 @@ router.get('/', authenticate, async (req, res) => {
 });
 
 // --- 3. VERIFY TOKEN ---
-router.get('/verify-token/:token', authenticate, async (req, res) => {
+router.get('/verify-token/:token', authenticateAny, async (req: any, res: any) => {
   const token = req.params.token as string;
   const today = new Intl.DateTimeFormat('en-CA', {
     timeZone: 'Asia/Karachi',

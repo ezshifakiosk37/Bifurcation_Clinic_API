@@ -1,9 +1,9 @@
 // routes/pateints.ts
 import { Router } from 'express';
 import { db } from '../db';
-import { all_entries, vitals, prescriptions, prescription_medicines } from '../db/schema';
+import { all_entries, vitals, prescriptions, prescription_medicines, doctors } from '../db/schema';
 import { eq, desc, and, sql, inArray } from 'drizzle-orm';
-import { authenticate } from '../middleware/auth';
+import { authenticate, authenticateAny } from '../middleware/auth';
 import { authenticateDoctor } from './doctors';
 
 const router = Router();
@@ -362,13 +362,25 @@ router.post('/save-vitals', authenticate, async (req: any, res: any) => {
 // ─────────────────────────────────────────────
 // 5. TODAY'S DASHBOARD STATS (for page.tsx)
 // ─────────────────────────────────────────────
-router.get('/today-stats', authenticate, async (req: any, res) => {
+router.get('/today-stats', authenticateAny, async (req: any, res) => {
   const today = new Intl.DateTimeFormat('en-CA', {
     timeZone: 'Asia/Karachi',
     year: 'numeric', month: '2-digit', day: '2-digit',
   }).format(new Date());
 
   const doctorId = req.query.doctorId as string | undefined;
+
+  // Resolve which clinic's user_id to scope to
+  let scopedUserId: string | undefined;
+  if (req.user?.userId) {
+    scopedUserId = req.user.userId;
+  } else if (req.doctor?.doctorId) {
+    const [doc] = await db.select({ user_id: doctors.user_id })
+      .from(doctors)
+      .where(eq(doctors.id, req.doctor.doctorId))
+      .limit(1);
+    scopedUserId = doc?.user_id ?? undefined;
+  }
 
   try {
     const [prescriptionCount] = await db
@@ -385,7 +397,7 @@ router.get('/today-stats', authenticate, async (req: any, res) => {
       .from(all_entries)
       .where(and(
         eq(all_entries.tokenDate, today),
-        eq(all_entries.user_id, req.user.userId),
+        ...(scopedUserId ? [eq(all_entries.user_id, scopedUserId)] : []),
         sql`not exists (
       select 1 from ${prescriptions}
       where ${prescriptions.patient_id} = ${all_entries.id}
@@ -400,7 +412,9 @@ router.get('/today-stats', authenticate, async (req: any, res) => {
       .where(and(
         eq(all_entries.tokenDate, today),
         eq(all_entries.vitalsRecorded, true),
-        eq(all_entries.user_id, req.user.userId),
+        ...(scopedUserId ? [eq(all_entries.user_id, scopedUserId)] : []),
+
+
         sql`not exists (
       select 1 from ${prescriptions}
       where ${prescriptions.patient_id} = ${all_entries.id}
@@ -476,12 +490,24 @@ router.post('/save-prescription', authenticateDoctor, async (req: any, res: any)
 // ─────────────────────────────────────────────
 // 7. TODAY'S QUEUE (deduped — one row per patient)
 // ─────────────────────────────────────────────
-router.get('/today-queue', authenticate, async (req: any, res) => {
+router.get('/today-queue', authenticateAny, async (req: any, res) => {
   const doctorId = req.query.doctorId as string | undefined;
   const today = new Intl.DateTimeFormat('en-CA', {
     timeZone: 'Asia/Karachi',
     year: 'numeric', month: '2-digit', day: '2-digit',
   }).format(new Date());
+
+  // Resolve clinic user_id from either staff or doctor token
+  let scopedUserId: string | undefined;
+  if (req.user?.userId) {
+    scopedUserId = req.user.userId;
+  } else if (req.doctor?.doctorId) {
+    const [doc] = await db.select({ user_id: doctors.user_id })
+      .from(doctors)
+      .where(eq(doctors.id, req.doctor.doctorId))
+      .limit(1);
+    scopedUserId = doc?.user_id ?? undefined;
+  }
 
   try {
     // Step 1: get today's patients with completion status
@@ -500,7 +526,7 @@ router.get('/today-queue', authenticate, async (req: any, res) => {
       .from(all_entries)
       .where(and(
         eq(all_entries.tokenDate, today),
-        eq(all_entries.user_id, req.user.userId),
+        ...(scopedUserId ? [eq(all_entries.user_id, scopedUserId)] : []),
       ))
       .orderBy(desc(all_entries.tokenTime));
 
@@ -731,7 +757,7 @@ router.get('/get-all-prescriptions-today', authenticate, async (req: any, res) =
 // ─────────────────────────────────────────────
 // 8. VITALS QUEUE — patients with token today but vitals NOT recorded
 // ─────────────────────────────────────────────
-router.get('/vitals-queue', authenticate, async (req, res) => {
+router.get('/vitals-queue', authenticateAny, async (req: any, res) => {
   const today = new Intl.DateTimeFormat('en-CA', {
     timeZone: 'Asia/Karachi',
     year: 'numeric', month: '2-digit', day: '2-digit',

@@ -11,6 +11,9 @@ export const users = pgTable("users", {
   location: text("location").notNull().default("Pilot"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   name: text("name").notNull().default("null"),
+  country: text("country").notNull().default("null"),
+  city: text("city").notNull().default("null"),
+
 });
 
 export const all_entries = pgTable("all_entries", {

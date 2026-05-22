@@ -44,6 +44,7 @@ export const all_entries = pgTable("all_entries", {
   token: varchar("token", { length: 10 }),
   tokenDate: date("token_date"),           // date of latest check-in
   tokenTime: time("token_time"),            // time of last check-in
+  mrNumber: text("mrNumber"),
 });
 
 export const vitals = pgTable("vitals", {

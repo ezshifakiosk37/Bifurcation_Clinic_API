@@ -64,166 +64,351 @@ const getNextToken = async (userId: string) => {
 };
 
 // --- 1. SAVE OR UPDATE PATIENT ---
+// router.post('/save', authenticate, async (req: any, res: any) => {
+//   const { id } = req.body;
+//   const userId = req.user.userId;
+
+//   try {
+//     const isValidId = id && id !== "null" && id !== "" && id !== undefined;
+
+//     let effectiveId: string | null = isValidId ? id : null;
+
+//     if (isValidId) {
+//       const [ownerCheck] = await db
+//         .select({ user_id: all_entries.user_id })
+//         .from(all_entries)
+//         .where(eq(all_entries.id, id))
+//         .limit(1);
+
+//       if (!ownerCheck || ownerCheck.user_id !== userId) {
+//         effectiveId = null; // Different clinic or not found — force new insert
+//       }
+//     }
+//     const { createdDate, createdTime } = getNow();
+
+//     // ── GUARD: block re-tokenization if patient is already in vitals/doctor queue ──
+//     if (effectiveId) {
+//       const today = new Intl.DateTimeFormat('en-CA', {
+//         timeZone: 'Asia/Karachi',
+//         year: 'numeric', month: '2-digit', day: '2-digit',
+//       }).format(new Date());
+
+//       const [existing] = await db
+//         .select({
+//           vitalsRecorded: all_entries.vitalsRecorded,
+//           tokenDate: all_entries.tokenDate,
+//           token: all_entries.token,
+//         })
+//         .from(all_entries)
+//         .where(and(eq(all_entries.id, effectiveId!), eq(all_entries.user_id, userId)))
+//         .limit(1);
+
+//       if (existing && existing.tokenDate === today) {
+
+//         // Check if current token already has a prescription (this visit is done)
+//         const [prescriptionForCurrentToken] = await db
+//           .select({ id: prescriptions.id })
+//           .from(prescriptions)
+//           .where(
+//             and(
+//               eq(prescriptions.patient_id, id),
+//               eq(prescriptions.prescriptionDate, today),
+//               eq(prescriptions.token, existing.token!)
+//             )
+//           )
+//           .limit(1);
+
+//         if (!prescriptionForCurrentToken) {
+//           // Current token visit is NOT done yet — block re-entry
+//           const inVitalsQueue = existing.vitalsRecorded === false;
+//           return res.status(409).json({
+//             error: inVitalsQueue
+//               ? "Patient is already waiting for vitals. Please complete vitals first."
+//               : "Patient is already waiting in the doctor queue. Token cannot be regenerated until the doctor ends their session."
+//           });
+//         }
+//         // Current token has a prescription = that visit is fully done, allow new token
+//       }
+//     }
+
+//     const freshToken = await getNextToken(userId);
+
+//     let result;
+
+//     if (effectiveId) {
+//       // Returning patient at same clinic — update token
+//       result = await db.update(all_entries)
+//         .set({
+//           user_id: userId,
+//           token: freshToken,
+//           tokenDate: createdDate,
+//           tokenTime: createdTime,
+//           vitalsRecorded: false,
+//           phoneNumber: req.body.phoneNumber || "null",
+//           firstName: req.body.firstName || "null",
+//           lastName: req.body.lastName || "null",
+//           father_husband: req.body.father_husband || "null",
+//           age: parseInt(req.body.age) || 0,
+//           gender: req.body.gender || "null",
+//           email: req.body.email || "null",
+//           cnic: req.body.cnic || "null",
+//           dob: req.body.dob || "null",
+//           country: req.body.country || "null",
+//           province: req.body.province || "null",
+//           city: req.body.city || "null",
+//           stAddress: req.body.stAddress || "null",
+//           languages: req.body.languages || "null",
+//           surgicalHistory: req.body.surgicalHistory || "None",
+//           medicalHistory: Array.isArray(req.body.medicalHistory) ? JSON.stringify(req.body.medicalHistory) : "[]",
+//           medicineHistory: Array.isArray(req.body.medicineHistory) ? JSON.stringify(req.body.medicineHistory) : "[]",
+//           allergies: Array.isArray(req.body.allergies) ? JSON.stringify(req.body.allergies) : "[]",
+//         })
+//         .where(and(eq(all_entries.id, effectiveId), eq(all_entries.user_id, userId)))
+//         .returning({ id: all_entries.id, token: all_entries.token });
+
+//     } else {
+//       // New patient or cross-clinic visit — insert fresh row for this clinic
+//       result = await db.insert(all_entries)
+//         .values({
+//           user_id: userId,
+//           token: freshToken,
+//           createdDate,
+//           createdTime,
+//           tokenDate: createdDate,
+//           tokenTime: createdTime,
+//           phoneNumber: req.body.phoneNumber || "null",
+//           firstName: req.body.firstName || "null",
+//           lastName: req.body.lastName || "null",
+//           father_husband: req.body.father_husband || "null",
+//           age: parseInt(req.body.age) || 0,
+//           gender: req.body.gender || "null",
+//           email: req.body.email || "null",
+//           cnic: req.body.cnic || "null",
+//           dob: req.body.dob || "null",
+//           country: req.body.country || "null",
+//           province: req.body.province || "null",
+//           city: req.body.city || "null",
+//           stAddress: req.body.stAddress || "null",
+//           languages: req.body.languages || "null",
+//           surgicalHistory: req.body.surgicalHistory || "None",
+//           medicalHistory: Array.isArray(req.body.medicalHistory) ? JSON.stringify(req.body.medicalHistory) : "[]",
+//           medicineHistory: Array.isArray(req.body.medicineHistory) ? JSON.stringify(req.body.medicineHistory) : "[]",
+//           allergies: Array.isArray(req.body.allergies) ? JSON.stringify(req.body.allergies) : "[]",
+//         })
+//         .returning({ id: all_entries.id, token: all_entries.token });
+//     }
+
+//     if (!result || result.length === 0) {
+//       return res.status(404).json({ error: "Operation failed" });
+//     }
+
+//     res.json({ success: true, entryId: result[0].id, token: result[0].token });
+
+//   } catch (err: any) {
+//     console.error("SAVE ERROR:", err);
+//     res.status(500).json({ error: "Database error", details: err.message });
+//   }
+// });
+
 router.post('/save', authenticate, async (req: any, res: any) => {
-  const { id } = req.body;
+  const { id, mrNumber, ...fields } = req.body;
   const userId = req.user.userId;
 
-  try {
-    const isValidId = id && id !== "null" && id !== "" && id !== undefined;
+  // ── Determine mode ──
+  const isMRMode = !!mrNumber && mrNumber.trim() !== "";
 
-    let effectiveId: string | null = isValidId ? id : null;
-
-    if (isValidId) {
-      const [ownerCheck] = await db
-        .select({ user_id: all_entries.user_id })
-        .from(all_entries)
-        .where(eq(all_entries.id, id))
-        .limit(1);
-
-      if (!ownerCheck || ownerCheck.user_id !== userId) {
-        effectiveId = null; // Different clinic or not found — force new insert
+  // ── Validation ──
+  if (isMRMode) {
+    const requiredMr = ['mrNumber', 'firstName', 'gender', 'dob', 'age', 'country', 'city', 'province'];
+    for (let field of requiredMr) {
+      if (!req.body[field]) {
+        return res.status(400).json({ error: `Missing required field: ${field}` });
       }
     }
-    const { createdDate, createdTime } = getNow();
-
-    // ── GUARD: block re-tokenization if patient is already in vitals/doctor queue ──
-    if (effectiveId) {
-      const today = new Intl.DateTimeFormat('en-CA', {
-        timeZone: 'Asia/Karachi',
-        year: 'numeric', month: '2-digit', day: '2-digit',
-      }).format(new Date());
-
-      const [existing] = await db
-        .select({
-          vitalsRecorded: all_entries.vitalsRecorded,
-          tokenDate: all_entries.tokenDate,
-          token: all_entries.token,
-        })
-        .from(all_entries)
-        .where(and(eq(all_entries.id, effectiveId!), eq(all_entries.user_id, userId)))
-        .limit(1);
-
-      if (existing && existing.tokenDate === today) {
-
-        // Check if current token already has a prescription (this visit is done)
-        const [prescriptionForCurrentToken] = await db
-          .select({ id: prescriptions.id })
-          .from(prescriptions)
-          .where(
-            and(
-              eq(prescriptions.patient_id, id),
-              eq(prescriptions.prescriptionDate, today),
-              eq(prescriptions.token, existing.token!)
-            )
-          )
-          .limit(1);
-
-        if (!prescriptionForCurrentToken) {
-          // Current token visit is NOT done yet — block re-entry
-          const inVitalsQueue = existing.vitalsRecorded === false;
-          return res.status(409).json({
-            error: inVitalsQueue
-              ? "Patient is already waiting for vitals. Please complete vitals first."
-              : "Patient is already waiting in the doctor queue. Token cannot be regenerated until the doctor ends their session."
-          });
-        }
-        // Current token has a prescription = that visit is fully done, allow new token
+  } else {
+    const requiredNormal = ['phoneNumber', 'firstName', 'gender', 'dob', 'age', 'country', 'city', 'province'];
+    for (let field of requiredNormal) {
+      if (!req.body[field]) {
+        return res.status(400).json({ error: `Missing required field: ${field}` });
       }
     }
-
-    const freshToken = await getNextToken(userId);
-
-    let result;
-
-    if (effectiveId) {
-      // Returning patient at same clinic — update token
-      result = await db.update(all_entries)
-        .set({
-          user_id: userId,
-          token: freshToken,
-          tokenDate: createdDate,
-          tokenTime: createdTime,
-          vitalsRecorded: false,
-          phoneNumber: req.body.phoneNumber || "null",
-          firstName: req.body.firstName || "null",
-          lastName: req.body.lastName || "null",
-          father_husband: req.body.father_husband || "null",
-          age: parseInt(req.body.age) || 0,
-          gender: req.body.gender || "null",
-          email: req.body.email || "null",
-          cnic: req.body.cnic || "null",
-          dob: req.body.dob || "null",
-          country: req.body.country || "null",
-          province: req.body.province || "null",
-          city: req.body.city || "null",
-          stAddress: req.body.stAddress || "null",
-          languages: req.body.languages || "null",
-          surgicalHistory: req.body.surgicalHistory || "None",
-          medicalHistory: Array.isArray(req.body.medicalHistory) ? JSON.stringify(req.body.medicalHistory) : "[]",
-          medicineHistory: Array.isArray(req.body.medicineHistory) ? JSON.stringify(req.body.medicineHistory) : "[]",
-          allergies: Array.isArray(req.body.allergies) ? JSON.stringify(req.body.allergies) : "[]",
-        })
-        .where(and(eq(all_entries.id, effectiveId), eq(all_entries.user_id, userId)))
-        .returning({ id: all_entries.id, token: all_entries.token });
-
-    } else {
-      // New patient or cross-clinic visit — insert fresh row for this clinic
-      result = await db.insert(all_entries)
-        .values({
-          user_id: userId,
-          token: freshToken,
-          createdDate,
-          createdTime,
-          tokenDate: createdDate,
-          tokenTime: createdTime,
-          phoneNumber: req.body.phoneNumber || "null",
-          firstName: req.body.firstName || "null",
-          lastName: req.body.lastName || "null",
-          father_husband: req.body.father_husband || "null",
-          age: parseInt(req.body.age) || 0,
-          gender: req.body.gender || "null",
-          email: req.body.email || "null",
-          cnic: req.body.cnic || "null",
-          dob: req.body.dob || "null",
-          country: req.body.country || "null",
-          province: req.body.province || "null",
-          city: req.body.city || "null",
-          stAddress: req.body.stAddress || "null",
-          languages: req.body.languages || "null",
-          surgicalHistory: req.body.surgicalHistory || "None",
-          medicalHistory: Array.isArray(req.body.medicalHistory) ? JSON.stringify(req.body.medicalHistory) : "[]",
-          medicineHistory: Array.isArray(req.body.medicineHistory) ? JSON.stringify(req.body.medicineHistory) : "[]",
-          allergies: Array.isArray(req.body.allergies) ? JSON.stringify(req.body.allergies) : "[]",
-        })
-        .returning({ id: all_entries.id, token: all_entries.token });
-    }
-
-    if (!result || result.length === 0) {
-      return res.status(404).json({ error: "Operation failed" });
-    }
-
-    res.json({ success: true, entryId: result[0].id, token: result[0].token });
-
-  } catch (err: any) {
-    console.error("SAVE ERROR:", err);
-    res.status(500).json({ error: "Database error", details: err.message });
   }
+
+  const { createdDate, createdTime } = getNow();
+
+  // ── Find existing patient (based on mode) ──
+  let existingPatient = null;
+  if (isMRMode) {
+    const [found] = await db
+      .select()
+      .from(all_entries)
+      .where(and(eq(all_entries.mrNumber, mrNumber), eq(all_entries.user_id, userId)))
+      .limit(1);
+    existingPatient = found;
+  } else {
+    const phone = req.body.phoneNumber;
+    if (phone) {
+      const [found] = await db
+        .select()
+        .from(all_entries)
+        .where(and(eq(all_entries.phoneNumber, phone), eq(all_entries.user_id, userId)))
+        .limit(1);
+      existingPatient = found;
+    }
+  }
+
+  let effectiveId = existingPatient?.id || (id && id !== "null" ? id : null);
+
+  // ── Verify ownership ──
+  if (effectiveId) {
+    const [ownerCheck] = await db
+      .select({ user_id: all_entries.user_id })
+      .from(all_entries)
+      .where(eq(all_entries.id, effectiveId))
+      .limit(1);
+    if (!ownerCheck || ownerCheck.user_id !== userId) {
+      effectiveId = null;
+    }
+  }
+
+  // ── Guard: prevent re‑tokenization if already waiting today ──
+  if (effectiveId) {
+    const today = new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'Asia/Karachi',
+      year: 'numeric', month: '2-digit', day: '2-digit',
+    }).format(new Date());
+
+    const [existing] = await db
+      .select({ vitalsRecorded: all_entries.vitalsRecorded, tokenDate: all_entries.tokenDate, token: all_entries.token })
+      .from(all_entries)
+      .where(and(eq(all_entries.id, effectiveId), eq(all_entries.user_id, userId)))
+      .limit(1);
+
+    if (existing && existing.tokenDate === today) {
+      const [prescriptionForCurrentToken] = await db
+        .select({ id: prescriptions.id })
+        .from(prescriptions)
+        .where(
+          and(
+            eq(prescriptions.patient_id, effectiveId),
+            eq(prescriptions.prescriptionDate, today),
+            eq(prescriptions.token, existing.token!)
+          )
+        )
+        .limit(1);
+
+      if (!prescriptionForCurrentToken) {
+        const inVitalsQueue = existing.vitalsRecorded === false;
+        return res.status(409).json({
+          error: inVitalsQueue
+            ? "Patient is already waiting for vitals. Please complete vitals first."
+            : "Patient is already waiting in the doctor queue. Token cannot be regenerated until the doctor ends their session."
+        });
+      }
+    }
+  }
+
+  const freshToken = await getNextToken(userId);
+  let result;
+
+  // Base values common to both modes
+  const baseValues = {
+    user_id: userId,
+    token: freshToken,
+    tokenDate: createdDate,
+    tokenTime: createdTime,
+    vitalsRecorded: false,
+    firstName: req.body.firstName,
+    lastName: req.body.lastName || "",
+    father_husband: req.body.father_husband || "",
+    age: parseInt(req.body.age) || 0,
+    gender: req.body.gender,
+    email: req.body.email || "",
+    dob: req.body.dob,
+    country: req.body.country,
+    province: req.body.province,
+    city: req.body.city,
+    stAddress: req.body.stAddress || "",
+    languages: req.body.languages || "",
+    surgicalHistory: req.body.surgicalHistory || "None",
+    medicalHistory: Array.isArray(req.body.medicalHistory) ? JSON.stringify(req.body.medicalHistory) : "[]",
+    medicineHistory: Array.isArray(req.body.medicineHistory) ? JSON.stringify(req.body.medicineHistory) : "[]",
+    allergies: Array.isArray(req.body.allergies) ? JSON.stringify(req.body.allergies) : "[]",
+  };
+
+  if (isMRMode) {
+    // MR mode – store mrNumber, phoneNumber is optional (keep it if sent)
+    const mrValues = {
+      ...baseValues,
+      mrNumber: mrNumber,
+      phoneNumber: req.body.phoneNumber || "", // optional, can be empty
+      cnic: "", // clear CNIC in MR mode (or keep as is)
+    };
+
+    if (effectiveId) {
+      result = await db.update(all_entries)
+        .set(mrValues)
+        .where(eq(all_entries.id, effectiveId))
+        .returning({ id: all_entries.id, token: all_entries.token });
+    } else {
+      result = await db.insert(all_entries)
+        .values({ ...mrValues, createdDate, createdTime })
+        .returning({ id: all_entries.id, token: all_entries.token });
+    }
+  } else {
+    // Normal mode – store phoneNumber, cnic, and optionally clear mrNumber
+    const normalValues = {
+      ...baseValues,
+      phoneNumber: req.body.phoneNumber,
+      cnic: req.body.cnic || "",
+      mrNumber: null, // explicitly clear mrNumber when saving via phone
+    };
+
+    if (effectiveId) {
+      result = await db.update(all_entries)
+        .set(normalValues)
+        .where(eq(all_entries.id, effectiveId))
+        .returning({ id: all_entries.id, token: all_entries.token });
+    } else {
+      result = await db.insert(all_entries)
+        .values({ ...normalValues, createdDate, createdTime })
+        .returning({ id: all_entries.id, token: all_entries.token });
+    }
+  }
+
+  if (!result || result.length === 0) {
+    return res.status(404).json({ error: "Operation failed" });
+  }
+
+  res.json({ success: true, entryId: result[0].id, token: result[0].token });
 });
 
 // --- 2. SEARCH BY PHONE ---
 router.get('/', authenticate, async (req, res) => {
-  const { phone, cnic } = req.query;
-  if (!phone && !cnic) return res.status(400).json({ error: "Phone or CNIC required" });
+  const { phone, cnic, mrNumber } = req.query;
+
+  // At least one search parameter is required
+  if (!phone && !cnic && !mrNumber) {
+    return res.status(400).json({ error: "Phone, CNIC or MR Number required" });
+  }
 
   try {
     const { userId } = (req as any).user;
 
+    // Build search condition based on which param is provided
+    let searchCondition;
+    if (mrNumber) {
+      searchCondition = eq(all_entries.mrNumber, mrNumber as string);
+    } else if (cnic) {
+      searchCondition = eq(all_entries.cnic, cnic as string);
+    } else {
+      searchCondition = eq(all_entries.phoneNumber, phone as string);
+    }
+
     // First try to find a record belonging to this clinic
     let [entry] = await db.select().from(all_entries)
       .where(and(
-        cnic
-          ? eq(all_entries.cnic, cnic as string)
-          : eq(all_entries.phoneNumber, phone as string),
+        searchCondition,
         eq(all_entries.user_id, userId)
       ))
       .orderBy(desc(all_entries.createdDate), desc(all_entries.createdTime))
@@ -232,11 +417,7 @@ router.get('/', authenticate, async (req, res) => {
     // If not found at this clinic, fall back to any clinic (for pre-filling demographics)
     if (!entry) {
       [entry] = await db.select().from(all_entries)
-        .where(
-          cnic
-            ? eq(all_entries.cnic, cnic as string)
-            : eq(all_entries.phoneNumber, phone as string)
-        )
+        .where(searchCondition)
         .orderBy(desc(all_entries.createdDate), desc(all_entries.createdTime))
         .limit(1);
     }
@@ -258,6 +439,7 @@ router.get('/', authenticate, async (req, res) => {
       }
     });
   } catch (err) {
+    console.error("SEARCH ERROR:", err);
     res.status(500).json({ error: "Search failed" });
   }
 });

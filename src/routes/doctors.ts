@@ -173,6 +173,7 @@ router.put('/update/:id', authenticateDoctor, async (req: any, res: any) => {
         ...(title && { title }),
         ...(firstName && { firstName }),
         ...(lastName && { lastName }),
+        ...(req.body.photo && { photo: req.body.photo }),
         ...(email && { email }),
         ...(password && { password }),
         ...(phone && { phone }),
@@ -190,7 +191,7 @@ router.put('/update/:id', authenticateDoctor, async (req: any, res: any) => {
 
     if (!updated) return res.status(404).json({ error: 'Doctor not found' });
 
-    res.json({
+    ({
       success: true,
       doctor: {
         id: updated.id,

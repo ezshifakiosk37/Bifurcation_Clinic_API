@@ -45,7 +45,7 @@ export const all_entries = pgTable("all_entries", {
   tokenDate: date("token_date"),           // date of latest check-in
   tokenTime: time("token_time"),            // time of last check-in
   mrNumber: text("mrNumber"),
-  profilePhoto:text("profilePhoto").default("null")
+  profilePhoto: text("profilePhoto").default("null")
 });
 
 export const vitals = pgTable("vitals", {
@@ -58,7 +58,7 @@ export const vitals = pgTable("vitals", {
   Weight: text("Weight"),
   Height: text("Height"),
   symptoms: text("symptoms"),
-  bmi:text("bmi"),
+  bmi: text("bmi"),
   token: varchar("token", { length: 10 }),
   patientType: text("patientType").default("Walk-in"),
 
@@ -71,6 +71,29 @@ export const vitals = pgTable("vitals", {
   callStatus: text("call_status").default("idle"),
 
   patient_id: uuid("patient_id").notNull().references(() => all_entries.id),
+});
+
+//Rapid Testing
+export const rapid_testing = pgTable("rapid_testing", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  bloodSugar: text("blood_sugar").default("Not Performed"),
+  ecg: text("ecg").default("Not Performed"),
+  hiv: text("hiv").default("Not Performed"),
+  hepatitis: text("hepatitis").default("Not Performed"),
+  hbsag: text("hbsag").default("Not Performed"),
+  hcvAb: text("hcv_ab").default("Not Performed"),
+  hivAb: text("hiv_ab").default("Not Performed"),
+  dengueNs1Ag: text("dengue_ns1_ag").default("Not Performed"),
+  syphilisAb: text("syphilis_ab").default("Not Performed"),
+  typhoidAb: text("typhoid_ab").default("Not Performed"),
+  tuberculosis: text("tuberculosis").default("Not Performed"),
+  malariaPfPvAg: text("malaria_pf_pv_ag").default("Not Performed"),
+  hemoglobin: text("hemoglobin").default("Not Performed"),
+  cholesterol: text("cholesterol").default("Not Performed"),
+  bodyFat: text("body_fat").default("Not Performed"),
+  createdDate: date("created_date"),
+  createdTime: time("created_time"),
+  vitals_id: uuid("vitals_id").notNull().references(() => vitals.id,),
 });
 
 // ─────────────────────────────────────────────
@@ -91,9 +114,9 @@ export const doctors = pgTable("doctors", {
   experience: integer("experience").default(0),
   city: text("city"),
   doctorStatus: text("doctorStatus").default("online"),
-  
+
   user_id: uuid("user_id").references(() => users.id),
-  
+
   createdDate: date("created_date").defaultNow().notNull(),
   createdTime: time("created_time").defaultNow(),
   updatedDate: date("updated_date").defaultNow().notNull(),

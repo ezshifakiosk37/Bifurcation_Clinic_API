@@ -13,6 +13,7 @@
     "@daily-co/daily-js": "^0.89.1",
     "agora-access-token": "^2.0.4",
     "bcryptjs": "^3.0.3",
+    "cloudinary": "^1.41.3",
     "cors": "^2.8.6",
     "dotenv": "^17.2.4",
     "drizzle-orm": "^0.45.1",
@@ -22,6 +23,7 @@
     "jsonwebtoken": "^9.0.3",
     "livekit-server-sdk": "^2.15.1",
     "multer": "^2.1.1",
+    "multer-storage-cloudinary": "^4.0.0",
     "postgres": "^3.4.8"
   },
   "devDependencies": {

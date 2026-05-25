@@ -334,6 +334,7 @@ router.post('/save', authenticate, async (req: any, res: any) => {
     medicalHistory: Array.isArray(req.body.medicalHistory) ? JSON.stringify(req.body.medicalHistory) : "[]",
     medicineHistory: Array.isArray(req.body.medicineHistory) ? JSON.stringify(req.body.medicineHistory) : "[]",
     allergies: Array.isArray(req.body.allergies) ? JSON.stringify(req.body.allergies) : "[]",
+    profilePhoto: req.body.profilePhoto || null,
   };
 
   if (isMRMode) {

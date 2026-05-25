@@ -45,6 +45,7 @@ export const all_entries = pgTable("all_entries", {
   tokenDate: date("token_date"),           // date of latest check-in
   tokenTime: time("token_time"),            // time of last check-in
   mrNumber: text("mrNumber"),
+  profilePhoto:text("profilePhoto").default("null")
 });
 
 export const vitals = pgTable("vitals", {

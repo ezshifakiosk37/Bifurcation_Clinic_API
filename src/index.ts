@@ -13,6 +13,7 @@ import doctorRoutes from './routes/doctors';
 import videoRoutes from "./routes/video";
 import agoraVideoRoutes from "./routes/agoravideo";
 import notificationRoutes from "./routes/notifications";
+import uploadRouter from './routes/upload';
 
 dotenv.config();
 
@@ -49,7 +50,7 @@ app.use('/api/medicines', authenticate, medicineRoutes);
 app.use("/api/video", videoRoutes);
 app.use("/api/agoravideo", agoraVideoRoutes);
 app.use('/api/notifications', notificationRoutes);
-
+app.use('/api/upload', uploadRouter);
 app.use((err: any, req: Request, res: Response, next: NextFunction) => {
   console.error('Unhandled Error:', err);
   res.status(500).json({ error: 'Internal Server Error', details: err.message });

@@ -1,7 +1,7 @@
 // routes/vitals.ts 
 import { Router } from 'express';
 import { db } from '../db';
-import { vitals, all_entries } from '../db/schema';
+import { vitals, all_entries, rapid_testing } from '../db/schema';
 import { authenticate } from '../middleware/auth';
 import { eq, desc,and } from 'drizzle-orm';
 
@@ -145,6 +145,102 @@ router.get('/history-by-phone/:phone', authenticate, async (req: any, res: any) 
   }
 });
 
+// Save Rapid Testing
+router.post('/rapid-testing/save', authenticate, async (req, res) => {
+  const { vitalsId, rapidData } = req.body;
+  if (!vitalsId || !rapidData) {
+    return res.status(400).json({ success: false, error: "vitalsId and rapidData are required" });
+  }
+  try {
+    const now = new Date();
+    const createdDate = new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'Asia/Karachi',
+      year: 'numeric', month: '2-digit', day: '2-digit',
+    }).format(now);
+    const createdTime = new Intl.DateTimeFormat('en-GB', {
+      timeZone: 'Asia/Karachi',
+      hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false,
+    }).format(now);
 
+    const [inserted] = await db.insert(rapid_testing).values({
+      vitals_id: vitalsId,
+      bloodSugar: rapidData.bloodSugar?.value
+        ? `${rapidData.bloodSugar.value} (${rapidData.bloodSugar.type})`
+        : 'Not Performed',
+      ecg:           rapidData.tests?.find((t: any) => t.id === 'ecg')?.result        ?? 'Not Performed',
+      hiv:           rapidData.tests?.find((t: any) => t.id === 'hiv')?.result        ?? 'Not Performed',
+      hepatitis:     rapidData.tests?.find((t: any) => t.id === 'hepatitis')?.result  ?? 'Not Performed',
+      hbsag:         rapidData.tests?.find((t: any) => t.id === 'hbsag')?.result      ?? 'Not Performed',
+      hcvAb:         rapidData.tests?.find((t: any) => t.id === 'hcvab')?.result      ?? 'Not Performed',
+      hivAb:         rapidData.tests?.find((t: any) => t.id === 'hiv12ab')?.result    ?? 'Not Performed',
+      dengueNs1Ag:   rapidData.tests?.find((t: any) => t.id === 'dengue')?.result     ?? 'Not Performed',
+      syphilisAb:    rapidData.tests?.find((t: any) => t.id === 'syphilis')?.result   ?? 'Not Performed',
+      typhoidAb:     rapidData.tests?.find((t: any) => t.id === 'typhoid')?.result    ?? 'Not Performed',
+      tuberculosis:  rapidData.tests?.find((t: any) => t.id === 'tb')?.result         ?? 'Not Performed',
+      malariaPfPvAg: rapidData.tests?.find((t: any) => t.id === 'malaria')?.result    ?? 'Not Performed',
+      hemoglobin:    rapidData.moreTests?.find((t: any) => t.id === 'hemoglobin')?.value  || null,
+      cholesterol:   rapidData.moreTests?.find((t: any) => t.id === 'cholesterol')?.value || null,
+      bodyFat:       rapidData.moreTests?.find((t: any) => t.id === 'bodyfat')?.value     || null,
+      createdDate,
+      createdTime,
+    }).returning();
+
+    res.json({ success: true, data: inserted });
+  } catch (err) {
+    console.error("Rapid Testing Save Error:", err);
+    res.status(500).json({ success: false, error: "Failed to save rapid testing data" });
+  }
+});
+
+// Update Rapid Testing
+router.patch('/rapid-testing/update/:id', authenticate, async (req, res) => {
+  const { id } = req.params;
+  const { rapidData } = req.body;
+  if (!rapidData) {
+    return res.status(400).json({ success: false, error: "rapidData is required" });
+  }
+  try {
+    const [updated] = await db.update(rapid_testing).set({
+      bloodSugar: rapidData.bloodSugar?.value
+        ? `${rapidData.bloodSugar.value} (${rapidData.bloodSugar.type})`
+        : 'Not Performed',
+      ecg:           rapidData.tests?.find((t: any) => t.id === 'ecg')?.result        ?? 'Not Performed',
+      hiv:           rapidData.tests?.find((t: any) => t.id === 'hiv')?.result        ?? 'Not Performed',
+      hepatitis:     rapidData.tests?.find((t: any) => t.id === 'hepatitis')?.result  ?? 'Not Performed',
+      hbsag:         rapidData.tests?.find((t: any) => t.id === 'hbsag')?.result      ?? 'Not Performed',
+      hcvAb:         rapidData.tests?.find((t: any) => t.id === 'hcvab')?.result      ?? 'Not Performed',
+      hivAb:         rapidData.tests?.find((t: any) => t.id === 'hiv12ab')?.result    ?? 'Not Performed',
+      dengueNs1Ag:   rapidData.tests?.find((t: any) => t.id === 'dengue')?.result     ?? 'Not Performed',
+      syphilisAb:    rapidData.tests?.find((t: any) => t.id === 'syphilis')?.result   ?? 'Not Performed',
+      typhoidAb:     rapidData.tests?.find((t: any) => t.id === 'typhoid')?.result    ?? 'Not Performed',
+      tuberculosis:  rapidData.tests?.find((t: any) => t.id === 'tb')?.result         ?? 'Not Performed',
+      malariaPfPvAg: rapidData.tests?.find((t: any) => t.id === 'malaria')?.result    ?? 'Not Performed',
+      hemoglobin:    rapidData.moreTests?.find((t: any) => t.id === 'hemoglobin')?.value  || null,
+      cholesterol:   rapidData.moreTests?.find((t: any) => t.id === 'cholesterol')?.value || null,
+      bodyFat:       rapidData.moreTests?.find((t: any) => t.id === 'bodyfat')?.value     || null,
+    }).where(eq(rapid_testing.id, id as string)).returning();
+
+    res.json({ success: true, data: updated });
+  } catch (err) {
+    console.error("Rapid Testing Update Error:", err);
+    res.status(500).json({ success: false, error: "Failed to update rapid testing data" });
+  }
+});
+
+// Get Rapid Testing by vitalsId
+router.get('/rapid-testing/:vitalsId', authenticate, async (req, res) => {
+  const { vitalsId } = req.params;
+  try {
+    const [record] = await db.select()
+      .from(rapid_testing)
+      .where(eq(rapid_testing.vitals_id, vitalsId as string))
+      .limit(1);
+
+    res.json({ success: true, data: record ?? null });
+  } catch (err) {
+    console.error("Rapid Testing Fetch Error:", err);
+    res.status(500).json({ success: false, error: "Failed to fetch rapid testing data" });
+  }
+});
 
 export default router;

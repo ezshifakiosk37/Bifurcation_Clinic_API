@@ -243,95 +243,95 @@ router.get('/rapid-testing/:vitalsId', authenticate, async (req, res) => {
   }
 });
 
-// // EYE TESTING + COLOR BLIND (eye_testing)
-// // ─────────────────────────────────────────────
+// EYE TESTING + COLOR BLIND (eye_testing)
+// ─────────────────────────────────────────────
 
-// // Helper to get PKT date/time (reuse the same logic as above)
-// const getPktDateTime = () => {
-//   const now = new Date();
-//   const createdDate = new Intl.DateTimeFormat('en-CA', {
-//     timeZone: 'Asia/Karachi',
-//     year: 'numeric', month: '2-digit', day: '2-digit',
-//   }).format(now);
-//   const createdTime = new Intl.DateTimeFormat('en-GB', {
-//     timeZone: 'Asia/Karachi',
-//     hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false,
-//   }).format(now);
-//   return { createdDate, createdTime };
-// };
+// Helper to get PKT date/time (reuse the same logic as above)
+const getPktDateTime = () => {
+  const now = new Date();
+  const createdDate = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Karachi',
+    year: 'numeric', month: '2-digit', day: '2-digit',
+  }).format(now);
+  const createdTime = new Intl.DateTimeFormat('en-GB', {
+    timeZone: 'Asia/Karachi',
+    hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false,
+  }).format(now);
+  return { createdDate, createdTime };
+};
 
-// // POST /api/vitals/eye-testing/save
-// router.post('/eye-testing/save', authenticate, async (req, res) => {
-//   const { vitalsId, eyeData } = req.body;
-//   if (!vitalsId || !eyeData) {
-//     return res.status(400).json({ success: false, error: 'vitalsId and eyeData are required' });
-//   }
+// POST /api/vitals/eye-testing/save
+router.post('/eye-testing/save', authenticate, async (req, res) => {
+  const { vitalsId, eyeData } = req.body;
+  if (!vitalsId || !eyeData) {
+    return res.status(400).json({ success: false, error: 'vitalsId and eyeData are required' });
+  }
 
-//   const { chartType, leftEye, rightEye, plate1, plate2, plate3, colorBlindResult } = eyeData;
-//   const { createdDate, createdTime } = getPktDateTime();
+  const { chartType, leftEye, rightEye, plate1, plate2, plate3, colorBlindResult } = eyeData;
+  const { createdDate, createdTime } = getPktDateTime();
 
-//   try {
-//     // Check if a record already exists for this vitalsId
-//     const [existing] = await db
-//       .select()
-//       .from(eye_testing)
-//       .where(eq(eye_testing.vitals_id, vitalsId as string))
-//       .limit(1);
+  try {
+    // Check if a record already exists for this vitalsId
+    const [existing] = await db
+      .select()
+      .from(eye_testing)
+      .where(eq(eye_testing.vitals_id, vitalsId as string))
+      .limit(1);
 
-//     let result;
-//     if (existing) {
-//       // Update existing record
-//       [result] = await db.update(eye_testing)
-//         .set({
-//           chartType: chartType ?? existing.chartType,
-//           leftEye: leftEye ?? existing.leftEye,
-//           rightEye: rightEye ?? existing.rightEye,
-//           plate1: plate1 ?? existing.plate1,
-//           plate2: plate2 ?? existing.plate2,
-//           plate3: plate3 ?? existing.plate3,
-//           colorBlindResult: colorBlindResult ?? existing.colorBlindResult,
-//         })
-//         .where(eq(eye_testing.id, existing.id))
-//         .returning();
-//     } else {
-//       // Insert new record
-//       [result] = await db.insert(eye_testing)
-//         .values({
-//           vitals_id: vitalsId,
-//           chartType: chartType || null,
-//           leftEye: leftEye || null,
-//           rightEye: rightEye || null,
-//           plate1: plate1 || null,
-//           plate2: plate2 || null,
-//           plate3: plate3 || null,
-//           colorBlindResult: colorBlindResult || null,
-//           createdDate,
-//           createdTime,
-//         })
-//         .returning();
-//     }
+    let result;
+    if (existing) {
+      // Update existing record
+      [result] = await db.update(eye_testing)
+        .set({
+          chartType: chartType ?? existing.chartType,
+          leftEye: leftEye ?? existing.leftEye,
+          rightEye: rightEye ?? existing.rightEye,
+          plate1: plate1 ?? existing.plate1,
+          plate2: plate2 ?? existing.plate2,
+          plate3: plate3 ?? existing.plate3,
+          colorBlindResult: colorBlindResult ?? existing.colorBlindResult,
+        })
+        .where(eq(eye_testing.id, existing.id))
+        .returning();
+    } else {
+      // Insert new record
+      [result] = await db.insert(eye_testing)
+        .values({
+          vitals_id: vitalsId,
+          chartType: chartType || null,
+          leftEye: leftEye || null,
+          rightEye: rightEye || null,
+          plate1: plate1 || null,
+          plate2: plate2 || null,
+          plate3: plate3 || null,
+          colorBlindResult: colorBlindResult || null,
+          createdDate,
+          createdTime,
+        })
+        .returning();
+    }
 
-//     res.json({ success: true, data: result });
-//   } catch (err) {
-//     console.error('Eye testing save error:', err);
-//     res.status(500).json({ success: false, error: 'Failed to save eye testing data' });
-//   }
-// });
+    res.json({ success: true, data: result });
+  } catch (err) {
+    console.error('Eye testing save error:', err);
+    res.status(500).json({ success: false, error: 'Failed to save eye testing data' });
+  }
+});
 
-// // GET /api/vitals/eye-testing/:vitalsId
-// router.get('/eye-testing/:vitalsId', authenticate, async (req, res) => {
-//   const { vitalsId } = req.params;
-//   try {
-//     const [record] = await db
-//       .select()
-//       .from(eye_testing)
-//       .where(eq(eye_testing.vitals_id, vitalsId as string))
-//       .limit(1);
-//     res.json({ success: true, data: record ?? null });
-//   } catch (err) {
-//     console.error('Eye testing fetch error:', err);
-//     res.status(500).json({ success: false, error: 'Failed to fetch eye testing data' });
-//   }
-// });
+// GET /api/vitals/eye-testing/:vitalsId
+router.get('/eye-testing/:vitalsId', authenticate, async (req, res) => {
+  const { vitalsId } = req.params;
+  try {
+    const [record] = await db
+      .select()
+      .from(eye_testing)
+      .where(eq(eye_testing.vitals_id, vitalsId as string))
+      .limit(1);
+    res.json({ success: true, data: record ?? null });
+  } catch (err) {
+    console.error('Eye testing fetch error:', err);
+    res.status(500).json({ success: false, error: 'Failed to fetch eye testing data' });
+  }
+});
 
 export default router;

@@ -96,6 +96,24 @@ export const rapid_testing = pgTable("rapid_testing", {
   vitals_id: uuid("vitals_id").notNull().references(() => vitals.id,),
 });
 
+// Eye Testing Table (Eye + Color Blind)
+export const eye_testing = pgTable("eye_testing", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  // Eye Testing Fields 
+  chartType: text("chart_type").default("Not Performed"),
+  leftEye: text("left_eye").default("Not Performed"),
+  rightEye: text("right_eye").default("Not Performed"),
+  //Color Blind Test 
+  plate1: text("plate_1").default("Not Performed"),
+  plate2: text("plate_2").default("Not Performed"),
+  plate3: text("plate_3").default("Not Performed"),
+  colorBlindResult: text("color_blind_result").default("Not Performed"),   // "Passed" or "Failed"
+
+  createdDate: date("created_date").defaultNow(),
+  createdTime: time("created_time").defaultNow(),
+  vitals_id: uuid("vitals_id").notNull().references(() => vitals.id,),
+});
+
 // ─────────────────────────────────────────────
 // 4. DOCTORS
 // ─────────────────────────────────────────────

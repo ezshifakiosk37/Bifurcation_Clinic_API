@@ -33,15 +33,19 @@ router.post('/save', authenticate, async (req, res) => {
       token: patient?.token ?? null,
       createdDate,
       createdTime,
-      PulseRate: vData.PulseRate,
-      BloodOxygen: vData.Spo2,
-      Systolic: vData.BP?.value1,
-      Diastolic: vData.BP?.value2,
-      Temperature: vData.Temperature,
-      Weight: vData.Weight,
-      Height: vData.Height,
-      symptoms: vData.symptoms || null,
-      bmi: vData.bmi ? vData.bmi.toString() : null,         // ADD
+      PulseRate: vData.PulseRate || 'Not Performed',
+      BloodOxygen: vData.Spo2 || 'Not Performed',
+      Systolic: vData.BP?.value1 || 'Not Performed',
+      Diastolic: vData.BP?.value2 || 'Not Performed',
+      Temperature: vData.Temperature || 'Not Performed',
+      Weight: vData.Weight || 'Not Performed',
+      Height: vData.Height || 'Not Performed',
+      symptoms: vData.symptoms?.length
+        ? (Array.isArray(vData.symptoms)
+          ? vData.symptoms.join(',')
+          : vData.symptoms)
+        : 'Unknown',
+      bmi: vData.bmi ? vData.bmi.toString() : null,
       patientType: vData.patientType || "Walk-in",
       callStatus: "idle",
     }).returning();
@@ -67,7 +71,11 @@ router.patch('/update/:vitalsId', authenticate, async (req, res) => {
         Temperature: vData.Temperature,
         Weight: vData.Weight,
         Height: vData.Height,
-        symptoms: vData.symptoms || null,
+        symptoms: vData.symptoms?.length
+          ? (Array.isArray(vData.symptoms)
+            ? vData.symptoms.join(',')
+            : vData.symptoms)
+          : 'Unknown',
         bmi: vData.bmi ? vData.bmi.toString() : null,
         patientType: vData.patientType || "Walk-in",
       })

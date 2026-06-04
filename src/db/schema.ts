@@ -95,23 +95,33 @@ export const rapid_testing = pgTable("rapid_testing", {
   createdTime: time("created_time"),
   vitals_id: uuid("vitals_id").notNull().references(() => vitals.id,),
 });
-
-// Eye Testing Table (Eye + Color Blind)
+//eyetesting
 export const eye_testing = pgTable("eye_testing", {
   id: uuid("id").primaryKey().defaultRandom(),
-  // Eye Testing Fields 
-  chartType: text("chart_type").default("Not Performed"),
-  leftEye: text("left_eye").default("Not Performed"),
-  rightEye: text("right_eye").default("Not Performed"),
-  //Color Blind Test 
-  plate1: text("plate_1").default("Not Performed"),
-  plate2: text("plate_2").default("Not Performed"),
-  plate3: text("plate_3").default("Not Performed"),
-  colorBlindResult: text("color_blind_result").default("Not Performed"),   // "Passed" or "Failed"
 
-  createdDate: date("created_date").defaultNow(),
-  createdTime: time("created_time").defaultNow(),
-  vitals_id: uuid("vitals_id").notNull().references(() => vitals.id,),
+  chartType: text("chart_type").notNull().default("Not Performed"),
+  leftEye: text("left_eye").notNull().default("Not Performed"),
+  rightEye: text("right_eye").notNull().default("Not Performed"),
+
+  createdDate: date("created_date"),
+  createdTime: time("created_time"),
+
+  vitals_id: uuid("vitals_id").notNull().references(() => vitals.id),
+});
+
+//color blind testing
+export const color_blind_testing = pgTable("color_blind_testing", {
+  id: uuid("id").primaryKey().defaultRandom(),
+
+  plate1: text("plate_1").notNull().default("Not Performed"),
+  plate2: text("plate_2").notNull().default("Not Performed"),
+  plate3: text("plate_3").notNull().default("Not Performed"),
+  colorBlindResult: text("color_blind_result").notNull().default("Not Performed"),
+
+  createdDate: date("created_date"),
+  createdTime: time("created_time"),
+
+  vitals_id: uuid("vitals_id").notNull().references(() => vitals.id),
 });
 
 // Hearing Testing Table

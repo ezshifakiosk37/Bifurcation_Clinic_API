@@ -1,7 +1,7 @@
 // routes/vitals.ts 
 import { Router } from 'express';
 import { db } from '../db';
-import { vitals, all_entries, rapid_testing, eye_testing, hearing_testing } from '../db/schema';
+import { vitals, all_entries, rapid_testing, eye_testing, color_blind_testing, hearing_testing } from '../db/schema';
 import { authenticate } from '../middleware/auth';
 import { eq, desc, and } from 'drizzle-orm';
 
@@ -267,11 +267,10 @@ router.post('/eye-testing/save', authenticate, async (req, res) => {
     return res.status(400).json({ success: false, error: 'vitalsId and eyeData are required' });
   }
 
-  const { chartType, leftEye, rightEye, plate1, plate2, plate3, colorBlindResult } = eyeData;
+  const { chartType, leftEye, rightEye } = eyeData;
   const { createdDate, createdTime } = getPktDateTime();
 
   try {
-    // Check if a record already exists for this vitalsId
     const [existing] = await db
       .select()
       .from(eye_testing)
@@ -280,31 +279,21 @@ router.post('/eye-testing/save', authenticate, async (req, res) => {
 
     let result;
     if (existing) {
-      // Update existing record
       [result] = await db.update(eye_testing)
         .set({
           chartType: chartType ?? existing.chartType,
           leftEye: leftEye ?? existing.leftEye,
           rightEye: rightEye ?? existing.rightEye,
-          plate1: plate1 ?? existing.plate1,
-          plate2: plate2 ?? existing.plate2,
-          plate3: plate3 ?? existing.plate3,
-          colorBlindResult: colorBlindResult ?? existing.colorBlindResult,
         })
         .where(eq(eye_testing.id, existing.id))
         .returning();
     } else {
-      // Insert new record
       [result] = await db.insert(eye_testing)
         .values({
           vitals_id: vitalsId,
-          chartType: chartType || null,
-          leftEye: leftEye || null,
-          rightEye: rightEye || null,
-          plate1: plate1 || null,
-          plate2: plate2 || null,
-          plate3: plate3 || null,
-          colorBlindResult: colorBlindResult || null,
+          chartType: chartType || 'Not Performed',
+          leftEye: leftEye || 'Not Performed',
+          rightEye: rightEye || 'Not Performed',
           createdDate,
           createdTime,
         })
@@ -331,6 +320,71 @@ router.get('/eye-testing/:vitalsId', authenticate, async (req, res) => {
   } catch (err) {
     console.error('Eye testing fetch error:', err);
     res.status(500).json({ success: false, error: 'Failed to fetch eye testing data' });
+  }
+});
+
+// POST /api/vitals/color-blind/save
+router.post('/color-blind/save', authenticate, async (req, res) => {
+  const { vitalsId, colorBlindData } = req.body;
+  if (!vitalsId || !colorBlindData) {
+    return res.status(400).json({ success: false, error: 'vitalsId and colorBlindData are required' });
+  }
+
+  const { plate1, plate2, plate3, colorBlindResult } = colorBlindData;
+  const { createdDate, createdTime } = getPktDateTime();
+
+  try {
+    const [existing] = await db
+      .select()
+      .from(color_blind_testing)
+      .where(eq(color_blind_testing.vitals_id, vitalsId as string))
+      .limit(1);
+
+    let result;
+    if (existing) {
+      [result] = await db.update(color_blind_testing)
+        .set({
+          plate1: plate1 ?? existing.plate1,
+          plate2: plate2 ?? existing.plate2,
+          plate3: plate3 ?? existing.plate3,
+          colorBlindResult: colorBlindResult ?? existing.colorBlindResult,
+        })
+        .where(eq(color_blind_testing.id, existing.id))
+        .returning();
+    } else {
+      [result] = await db.insert(color_blind_testing)
+        .values({
+          vitals_id: vitalsId,
+          plate1: plate1 || 'Not Performed',
+          plate2: plate2 || 'Not Performed',
+          plate3: plate3 || 'Not Performed',
+          colorBlindResult: colorBlindResult || 'Not Performed',
+          createdDate,
+          createdTime,
+        })
+        .returning();
+    }
+
+    res.json({ success: true, data: result });
+  } catch (err) {
+    console.error('Color blind save error:', err);
+    res.status(500).json({ success: false, error: 'Failed to save color blind data' });
+  }
+});
+
+// GET /api/vitals/color-blind/:vitalsId
+router.get('/color-blind/:vitalsId', authenticate, async (req, res) => {
+  const { vitalsId } = req.params;
+  try {
+    const [record] = await db
+      .select()
+      .from(color_blind_testing)
+      .where(eq(color_blind_testing.vitals_id, vitalsId as string))
+      .limit(1);
+    res.json({ success: true, data: record ?? null });
+  } catch (err) {
+    console.error('Color blind fetch error:', err);
+    res.status(500).json({ success: false, error: 'Failed to fetch color blind data' });
   }
 });
 

@@ -114,6 +114,21 @@ export const eye_testing = pgTable("eye_testing", {
   vitals_id: uuid("vitals_id").notNull().references(() => vitals.id,),
 });
 
+// Hearing Testing Table
+export const hearing_testing = pgTable("hearing_testing", {
+  id: uuid("id").primaryKey().defaultRandom(),
+
+  leftEar: text("left_ear").notNull().default("Not Performed"),
+  rightEar: text("right_ear").notNull().default("Not Performed"),
+  leftEarResult: text("left_ear_result").notNull().default("Not Performed"),
+  rightEarResult: text("right_ear_result").notNull().default("Not Performed"),
+
+  createdDate: date("created_date"),
+  createdTime: time("created_time"),
+
+  vitals_id: uuid("vitals_id").notNull().references(() => vitals.id),
+});
+
 // ─────────────────────────────────────────────
 // 4. DOCTORS
 // ─────────────────────────────────────────────

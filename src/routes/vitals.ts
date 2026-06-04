@@ -1,9 +1,9 @@
 // routes/vitals.ts 
 import { Router } from 'express';
 import { db } from '../db';
-import { vitals, all_entries, rapid_testing, eye_testing } from '../db/schema';
+import { vitals, all_entries, rapid_testing, eye_testing, hearing_testing } from '../db/schema';
 import { authenticate } from '../middleware/auth';
-import { eq, desc,and } from 'drizzle-orm';
+import { eq, desc, and } from 'drizzle-orm';
 
 const router = Router();
 
@@ -167,20 +167,20 @@ router.post('/rapid-testing/save', authenticate, async (req, res) => {
       bloodSugar: rapidData.bloodSugar?.value
         ? `${rapidData.bloodSugar.value} (${rapidData.bloodSugar.type})`
         : 'Not Performed',
-      ecg:           rapidData.tests?.find((t: any) => t.id === 'ecg')?.result        ?? 'Not Performed',
-      hiv:           rapidData.tests?.find((t: any) => t.id === 'hiv')?.result        ?? 'Not Performed',
-      hepatitis:     rapidData.tests?.find((t: any) => t.id === 'hepatitis')?.result  ?? 'Not Performed',
-      hbsag:         rapidData.tests?.find((t: any) => t.id === 'hbsag')?.result      ?? 'Not Performed',
-      hcvAb:         rapidData.tests?.find((t: any) => t.id === 'hcvab')?.result      ?? 'Not Performed',
-      hivAb:         rapidData.tests?.find((t: any) => t.id === 'hiv12ab')?.result    ?? 'Not Performed',
-      dengueNs1Ag:   rapidData.tests?.find((t: any) => t.id === 'dengue')?.result     ?? 'Not Performed',
-      syphilisAb:    rapidData.tests?.find((t: any) => t.id === 'syphilis')?.result   ?? 'Not Performed',
-      typhoidAb:     rapidData.tests?.find((t: any) => t.id === 'typhoid')?.result    ?? 'Not Performed',
-      tuberculosis:  rapidData.tests?.find((t: any) => t.id === 'tb')?.result         ?? 'Not Performed',
-      malariaPfPvAg: rapidData.tests?.find((t: any) => t.id === 'malaria')?.result    ?? 'Not Performed',
-      hemoglobin:    rapidData.moreTests?.find((t: any) => t.id === 'hemoglobin')?.value  || null,
-      cholesterol:   rapidData.moreTests?.find((t: any) => t.id === 'cholesterol')?.value || null,
-      bodyFat:       rapidData.moreTests?.find((t: any) => t.id === 'bodyfat')?.value     || null,
+      ecg: rapidData.tests?.find((t: any) => t.id === 'ecg')?.result ?? 'Not Performed',
+      hiv: rapidData.tests?.find((t: any) => t.id === 'hiv')?.result ?? 'Not Performed',
+      hepatitis: rapidData.tests?.find((t: any) => t.id === 'hepatitis')?.result ?? 'Not Performed',
+      hbsag: rapidData.tests?.find((t: any) => t.id === 'hbsag')?.result ?? 'Not Performed',
+      hcvAb: rapidData.tests?.find((t: any) => t.id === 'hcvab')?.result ?? 'Not Performed',
+      hivAb: rapidData.tests?.find((t: any) => t.id === 'hiv12ab')?.result ?? 'Not Performed',
+      dengueNs1Ag: rapidData.tests?.find((t: any) => t.id === 'dengue')?.result ?? 'Not Performed',
+      syphilisAb: rapidData.tests?.find((t: any) => t.id === 'syphilis')?.result ?? 'Not Performed',
+      typhoidAb: rapidData.tests?.find((t: any) => t.id === 'typhoid')?.result ?? 'Not Performed',
+      tuberculosis: rapidData.tests?.find((t: any) => t.id === 'tb')?.result ?? 'Not Performed',
+      malariaPfPvAg: rapidData.tests?.find((t: any) => t.id === 'malaria')?.result ?? 'Not Performed',
+      hemoglobin: rapidData.moreTests?.find((t: any) => t.id === 'hemoglobin')?.value || null,
+      cholesterol: rapidData.moreTests?.find((t: any) => t.id === 'cholesterol')?.value || null,
+      bodyFat: rapidData.moreTests?.find((t: any) => t.id === 'bodyfat')?.value || null,
       createdDate,
       createdTime,
     }).returning();
@@ -204,20 +204,20 @@ router.patch('/rapid-testing/update/:id', authenticate, async (req, res) => {
       bloodSugar: rapidData.bloodSugar?.value
         ? `${rapidData.bloodSugar.value} (${rapidData.bloodSugar.type})`
         : 'Not Performed',
-      ecg:           rapidData.tests?.find((t: any) => t.id === 'ecg')?.result        ?? 'Not Performed',
-      hiv:           rapidData.tests?.find((t: any) => t.id === 'hiv')?.result        ?? 'Not Performed',
-      hepatitis:     rapidData.tests?.find((t: any) => t.id === 'hepatitis')?.result  ?? 'Not Performed',
-      hbsag:         rapidData.tests?.find((t: any) => t.id === 'hbsag')?.result      ?? 'Not Performed',
-      hcvAb:         rapidData.tests?.find((t: any) => t.id === 'hcvab')?.result      ?? 'Not Performed',
-      hivAb:         rapidData.tests?.find((t: any) => t.id === 'hiv12ab')?.result    ?? 'Not Performed',
-      dengueNs1Ag:   rapidData.tests?.find((t: any) => t.id === 'dengue')?.result     ?? 'Not Performed',
-      syphilisAb:    rapidData.tests?.find((t: any) => t.id === 'syphilis')?.result   ?? 'Not Performed',
-      typhoidAb:     rapidData.tests?.find((t: any) => t.id === 'typhoid')?.result    ?? 'Not Performed',
-      tuberculosis:  rapidData.tests?.find((t: any) => t.id === 'tb')?.result         ?? 'Not Performed',
-      malariaPfPvAg: rapidData.tests?.find((t: any) => t.id === 'malaria')?.result    ?? 'Not Performed',
-      hemoglobin:    rapidData.moreTests?.find((t: any) => t.id === 'hemoglobin')?.value  || null,
-      cholesterol:   rapidData.moreTests?.find((t: any) => t.id === 'cholesterol')?.value || null,
-      bodyFat:       rapidData.moreTests?.find((t: any) => t.id === 'bodyfat')?.value     || null,
+      ecg: rapidData.tests?.find((t: any) => t.id === 'ecg')?.result ?? 'Not Performed',
+      hiv: rapidData.tests?.find((t: any) => t.id === 'hiv')?.result ?? 'Not Performed',
+      hepatitis: rapidData.tests?.find((t: any) => t.id === 'hepatitis')?.result ?? 'Not Performed',
+      hbsag: rapidData.tests?.find((t: any) => t.id === 'hbsag')?.result ?? 'Not Performed',
+      hcvAb: rapidData.tests?.find((t: any) => t.id === 'hcvab')?.result ?? 'Not Performed',
+      hivAb: rapidData.tests?.find((t: any) => t.id === 'hiv12ab')?.result ?? 'Not Performed',
+      dengueNs1Ag: rapidData.tests?.find((t: any) => t.id === 'dengue')?.result ?? 'Not Performed',
+      syphilisAb: rapidData.tests?.find((t: any) => t.id === 'syphilis')?.result ?? 'Not Performed',
+      typhoidAb: rapidData.tests?.find((t: any) => t.id === 'typhoid')?.result ?? 'Not Performed',
+      tuberculosis: rapidData.tests?.find((t: any) => t.id === 'tb')?.result ?? 'Not Performed',
+      malariaPfPvAg: rapidData.tests?.find((t: any) => t.id === 'malaria')?.result ?? 'Not Performed',
+      hemoglobin: rapidData.moreTests?.find((t: any) => t.id === 'hemoglobin')?.value || null,
+      cholesterol: rapidData.moreTests?.find((t: any) => t.id === 'cholesterol')?.value || null,
+      bodyFat: rapidData.moreTests?.find((t: any) => t.id === 'bodyfat')?.value || null,
     }).where(eq(rapid_testing.id, id as string)).returning();
 
     res.json({ success: true, data: updated });
@@ -331,6 +331,96 @@ router.get('/eye-testing/:vitalsId', authenticate, async (req, res) => {
   } catch (err) {
     console.error('Eye testing fetch error:', err);
     res.status(500).json({ success: false, error: 'Failed to fetch eye testing data' });
+  }
+});
+
+// ─────────────────────────────────────────────
+// HEARING TESTING
+// ─────────────────────────────────────────────
+
+// POST /api/vitals/hearing-testing/save
+router.post('/hearing-testing/save', authenticate, async (req, res) => {
+  const { vitalsId, hearingData } = req.body;
+
+  if (!vitalsId || !hearingData) {
+    return res.status(400).json({ success: false, error: 'vitalsId and hearingData are required' });
+  }
+
+  const { createdDate, createdTime } = getPktDateTime();
+
+  // Serialize leftEar — only heard frequencies, or "Not Performed"
+  const serializeEar = (ear: Record<number, number>): string => {
+    if (!ear || Object.keys(ear).length === 0) return 'Not Performed';
+    const serialized: Record<string, string> = {};
+    Object.entries(ear).forEach(([hz, db]) => {
+      serialized[hz] = db.toString();
+    });
+    return JSON.stringify(serialized);
+  };
+
+  const leftEar = serializeEar(hearingData.leftEar);
+  const rightEar = serializeEar(hearingData.rightEar);
+  const leftEarResult = hearingData.leftResult || 'Not Performed';
+  const rightEarResult = hearingData.rightResult || 'Not Performed';
+
+  try {
+    // Check if record already exists for this vitalsId
+    const [existing] = await db
+      .select()
+      .from(hearing_testing)
+      .where(eq(hearing_testing.vitals_id, vitalsId as string))
+      .limit(1);
+
+    let result;
+
+    if (existing) {
+      // Update existing record
+      [result] = await db.update(hearing_testing)
+        .set({
+          leftEar,
+          rightEar,
+          leftEarResult,
+          rightEarResult,
+        })
+        .where(eq(hearing_testing.id, existing.id))
+        .returning();
+    } else {
+      // Insert new record
+      [result] = await db.insert(hearing_testing)
+        .values({
+          vitals_id: vitalsId,
+          leftEar,
+          rightEar,
+          leftEarResult,
+          rightEarResult,
+          createdDate,
+          createdTime,
+        })
+        .returning();
+    }
+
+    res.json({ success: true, data: result });
+  } catch (err) {
+    console.error('Hearing testing save error:', err);
+    res.status(500).json({ success: false, error: 'Failed to save hearing testing data' });
+  }
+});
+
+// GET /api/vitals/hearing-testing/:vitalsId
+router.get('/hearing-testing/:vitalsId', authenticate, async (req, res) => {
+  const { vitalsId } = req.params;
+
+  try {
+    const [record] = await db
+      .select()
+      .from(hearing_testing)
+      .where(eq(hearing_testing.vitals_id, vitalsId as string))
+      .limit(1);
+
+    res.json({ success: true, data: record ?? null });
+  } catch (err) {
+    console.error('Hearing testing fetch error:', err);
+    res.status(500).json({ success: false, error: 'Failed to fetch hearing testing data' });
   }
 });
 

@@ -170,6 +170,35 @@ router.post('/rapid-testing/save', authenticate, async (req, res) => {
       hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false,
     }).format(now);
 
+    const [existing] = await db
+      .select()
+      .from(rapid_testing)
+      .where(eq(rapid_testing.vitals_id, vitalsId as string))
+      .limit(1);
+
+    if (existing) {
+      const [updated] = await db.update(rapid_testing).set({
+        bloodSugar: rapidData.bloodSugar?.value
+          ? `${rapidData.bloodSugar.value} (${rapidData.bloodSugar.type})`
+          : 'Not Performed',
+        ecg: rapidData.tests?.find((t: any) => t.id === 'ecg')?.result ?? 'Not Performed',
+        hiv: rapidData.tests?.find((t: any) => t.id === 'hiv')?.result ?? 'Not Performed',
+        hepatitis: rapidData.tests?.find((t: any) => t.id === 'hepatitis')?.result ?? 'Not Performed',
+        hbsag: rapidData.tests?.find((t: any) => t.id === 'hbsag')?.result ?? 'Not Performed',
+        hcvAb: rapidData.tests?.find((t: any) => t.id === 'hcvab')?.result ?? 'Not Performed',
+        hivAb: rapidData.tests?.find((t: any) => t.id === 'hiv12ab')?.result ?? 'Not Performed',
+        dengueNs1Ag: rapidData.tests?.find((t: any) => t.id === 'dengue')?.result ?? 'Not Performed',
+        syphilisAb: rapidData.tests?.find((t: any) => t.id === 'syphilis')?.result ?? 'Not Performed',
+        typhoidAb: rapidData.tests?.find((t: any) => t.id === 'typhoid')?.result ?? 'Not Performed',
+        tuberculosis: rapidData.tests?.find((t: any) => t.id === 'tb')?.result ?? 'Not Performed',
+        malariaPfPvAg: rapidData.tests?.find((t: any) => t.id === 'malaria')?.result ?? 'Not Performed',
+        hemoglobin: rapidData.moreTests?.find((t: any) => t.id === 'hemoglobin')?.value || null,
+        cholesterol: rapidData.moreTests?.find((t: any) => t.id === 'cholesterol')?.value || null,
+        bodyFat: rapidData.moreTests?.find((t: any) => t.id === 'bodyfat')?.value || null,
+      }).where(eq(rapid_testing.id, existing.id)).returning();
+      return res.json({ success: true, data: updated });
+    }
+
     const [inserted] = await db.insert(rapid_testing).values({
       vitals_id: vitalsId,
       bloodSugar: rapidData.bloodSugar?.value

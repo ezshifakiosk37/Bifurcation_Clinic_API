@@ -13,6 +13,7 @@ export const users = pgTable("users", {
   name: text("name").notNull().default("null"),
   country: text("country").notNull().default("null"),
   city: text("city").notNull().default("null"),
+  province: text("province").notNull().default("null"),
 
 });
 

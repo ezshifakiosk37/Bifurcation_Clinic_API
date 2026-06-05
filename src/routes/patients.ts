@@ -504,6 +504,7 @@ router.get('/verify-token/:token', authenticateAny, async (req: any, res: any) =
       patientId: patient.id,
       phoneNumber: patient.phoneNumber,
       firstName: patient.firstName,
+      lastName: patient.lastName,
     });
   } catch (err) {
     console.error("VERIFY ERROR:", err);

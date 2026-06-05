@@ -14,6 +14,7 @@ import videoRoutes from "./routes/video";
 import agoraVideoRoutes from "./routes/agoravideo";
 import notificationRoutes from "./routes/notifications";
 import uploadRouter from './routes/upload';
+import reportRoutes from './routes/report';
 
 dotenv.config();
 
@@ -50,6 +51,7 @@ app.use('/api/medicines', authenticate, medicineRoutes);
 app.use("/api/video", videoRoutes);
 app.use("/api/agoravideo", agoraVideoRoutes);
 app.use('/api/notifications', notificationRoutes);
+app.use('/api/report', reportRoutes);
 app.use('/api/upload', uploadRouter);
 app.use((err: any, req: Request, res: Response, next: NextFunction) => {
   console.error('Unhandled Error:', err);

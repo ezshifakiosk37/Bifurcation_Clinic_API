@@ -45,7 +45,7 @@ router.post('/save', authenticate, async (req, res) => {
           ? vData.symptoms.join(',')
           : vData.symptoms)
         : 'Unknown',
-      bmi: vData.bmi ? vData.bmi.toString() : null,
+      bmi: vData.bmi ? vData.bmi : null,
       patientType: vData.patientType || "Walk-in",
       callStatus: "idle",
     }).returning();

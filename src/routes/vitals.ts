@@ -1,4 +1,4 @@
-// routes/vitals.ts 
+//routes/vitals.ts 
 import { Router } from 'express';
 import { db } from '../db';
 import { vitals, all_entries, rapid_testing, eye_testing, color_blind_testing, hearing_testing } from '../db/schema';
@@ -76,7 +76,7 @@ router.patch('/update/:vitalsId', authenticate, async (req, res) => {
             ? vData.symptoms.join(',')
             : vData.symptoms)
           : 'Unknown',
-        bmi: vData.bmi ? vData.bmi.toString() : null,
+        bmi: vData.bmi ? vData.bmi : null,
         patientType: vData.patientType || "Walk-in",
       })
       .where(eq(vitals.id, vitalsId as string))

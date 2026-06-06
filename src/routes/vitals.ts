@@ -1,4 +1,4 @@
-// routes/vitals.ts 
+//routes/vitals.ts 
 import { Router } from 'express';
 import { db } from '../db';
 import { vitals, all_entries, rapid_testing, eye_testing, color_blind_testing, hearing_testing } from '../db/schema';

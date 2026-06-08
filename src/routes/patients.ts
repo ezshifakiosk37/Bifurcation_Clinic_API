@@ -318,7 +318,7 @@ router.post('/save', authenticate, async (req: any, res: any) => {
     tokenDate: createdDate,
     tokenTime: createdTime,
     vitalsRecorded: false,
-    
+
     firstName: req.body.firstName,
     lastName: req.body.lastName || "",
     father_husband: req.body.father_husband || "",
@@ -540,9 +540,10 @@ router.post('/save-vitals', authenticate, async (req: any, res: any) => {
       Temperature: v.Temperature?.toString(),
       Weight: v.Weight?.toString(),
       Height: v.Height?.toString(),
-      bmi: v.bmi ? v.bmi.toString() : null,                 // ADD
+      bmi: v.bmi ? v.bmi.toString() : null,
+      temperatureUnit: v.temperatureUnit || '°C',
+      heightUnit: v.heightUnit || 'ft',
       patientType: v.patientType || "Walk-in",
-      symptoms: v.symptoms ? v.symptoms.toString() : null,
       callStatus: "idle",
     }).returning();
 
@@ -988,7 +989,7 @@ router.get('/vitals-queue', authenticateAny, async (req: any, res) => {
   }
 });
 
-router.get('/latest-vitals/:patientId/:token', authenticate, async (req, res) => {
+router.get('/latest-vitals/:patientId/:token', authenticate, async (req, res: any) => {
   const { patientId, token } = req.params;
 
   const today = new Intl.DateTimeFormat('en-CA', {
@@ -998,21 +999,26 @@ router.get('/latest-vitals/:patientId/:token', authenticate, async (req, res) =>
     day: '2-digit',
   }).format(new Date());
 
-  const latest = await db
-    .select()
-    .from(vitals)
-    .where(and(
-      sql`${vitals.patient_id} = ${patientId}`,
-      sql`${vitals.token} = ${token}`,
-      eq(vitals.createdDate, today)
-    ))
-    .orderBy(desc(vitals.createdTime))
-    .limit(1);
+  try {
+    const latest = await db
+      .select()
+      .from(vitals)
+      .where(and(
+        eq(vitals.patient_id, String(patientId)),
+        eq(vitals.token, String(token)),
+        eq(vitals.createdDate, today)
+      ))
+      .orderBy(desc(vitals.createdTime))
+      .limit(1);
 
-  res.json({
-    success: true,
-    vital: latest[0] || null
-  });
+    res.json({
+      success: true,
+      vital: latest[0] || null
+    });
+  } catch (err: any) {
+    console.error("LATEST VITALS ERROR:", err);
+    res.status(500).json({ success: false, error: "Failed to fetch vitals", details: err.message });
+  }
 });
 
 // GET /api/patients/by-vitals/:vitalsId

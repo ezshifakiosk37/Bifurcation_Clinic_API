@@ -304,7 +304,7 @@ router.post('/eye-testing/save', authenticate, async (req, res) => {
     return res.status(400).json({ success: false, error: 'vitalsId and eyeData are required' });
   }
 
-  const { chartType, leftEye, rightEye } = eyeData;
+  const { chartType, leftEye, rightEye, leftEyeResult, rightEyeResult } = eyeData;
   const { createdDate, createdTime } = getPktDateTime();
 
   try {
@@ -321,6 +321,8 @@ router.post('/eye-testing/save', authenticate, async (req, res) => {
           chartType: chartType ?? existing.chartType,
           leftEye: leftEye ?? existing.leftEye,
           rightEye: rightEye ?? existing.rightEye,
+          leftEyeResult: leftEyeResult ?? existing.leftEyeResult,
+          rightEyeResult: rightEyeResult ?? existing.rightEyeResult,
         })
         .where(eq(eye_testing.id, existing.id))
         .returning();
@@ -331,6 +333,8 @@ router.post('/eye-testing/save', authenticate, async (req, res) => {
           chartType: chartType || 'Not Performed',
           leftEye: leftEye || 'Not Performed',
           rightEye: rightEye || 'Not Performed',
+          leftEyeResult: leftEyeResult || 'Not Performed',
+          rightEyeResult: rightEyeResult || 'Not Performed',
           createdDate,
           createdTime,
         })

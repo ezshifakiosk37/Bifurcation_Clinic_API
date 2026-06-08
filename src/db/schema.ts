@@ -103,7 +103,8 @@ export const eye_testing = pgTable("eye_testing", {
   chartType: text("chart_type").notNull().default("Not Performed"),
   leftEye: text("left_eye").notNull().default("Not Performed"),
   rightEye: text("right_eye").notNull().default("Not Performed"),
-
+  leftEyeResult:text("leftEyeResult").notNull().default("Not Performed"),
+  rightEyeResult:text("rightEyeResult").notNull().default("Not Performed"),
   createdDate: date("created_date"),
   createdTime: time("created_time"),
 

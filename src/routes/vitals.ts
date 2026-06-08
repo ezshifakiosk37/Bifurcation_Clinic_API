@@ -38,8 +38,10 @@ router.post('/save', authenticate, async (req, res) => {
       Systolic: vData.BP?.value1 || 'Not Performed',
       Diastolic: vData.BP?.value2 || 'Not Performed',
       Temperature: vData.Temperature || 'Not Performed',
+      temperatureUnit: vData.temperatureUnitture || 'Not Performed',
       Weight: vData.Weight || 'Not Performed',
       Height: vData.Height || 'Not Performed',
+      heightUnit: vData.heightUnit || 'Not Performed',
       symptoms: vData.symptoms?.length
         ? (Array.isArray(vData.symptoms)
           ? vData.symptoms.join(',')
@@ -69,8 +71,10 @@ router.patch('/update/:vitalsId', authenticate, async (req, res) => {
         Systolic: vData.BP?.value1,
         Diastolic: vData.BP?.value2,
         Temperature: vData.Temperature,
+        temperatureUnit: vData.temperatureUnit,
         Weight: vData.Weight,
         Height: vData.Height,
+        heightUnit: vData.heightUnit,
         symptoms: vData.symptoms?.length
           ? (Array.isArray(vData.symptoms)
             ? vData.symptoms.join(',')

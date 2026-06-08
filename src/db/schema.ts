@@ -57,10 +57,13 @@ export const vitals = pgTable("vitals", {
   Diastolic: text("Diastolic"),
   Systolic: text("Systolic"),
   Temperature: text("Temperature"),
+  temperatureUnit: text("temperatureUnit"),
   Weight: text("Weight"),
   Height: text("Height"),
+  heightUnit: text("heightUnit"),
   symptoms: text("symptoms"),
   bmi: text("bmi"),
+
   token: varchar("token", { length: 10 }),
   patientType: text("patientType").default("Walk-in"),
 

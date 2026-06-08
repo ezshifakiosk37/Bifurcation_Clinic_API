@@ -318,6 +318,7 @@ router.post('/save', authenticate, async (req: any, res: any) => {
     tokenDate: createdDate,
     tokenTime: createdTime,
     vitalsRecorded: false,
+    
     firstName: req.body.firstName,
     lastName: req.body.lastName || "",
     father_husband: req.body.father_husband || "",
@@ -335,6 +336,7 @@ router.post('/save', authenticate, async (req: any, res: any) => {
     medicineHistory: Array.isArray(req.body.medicineHistory) ? JSON.stringify(req.body.medicineHistory) : "[]",
     allergies: Array.isArray(req.body.allergies) ? JSON.stringify(req.body.allergies) : "[]",
     profilePhoto: req.body.profilePhoto || null,
+    countryCode: req.body.countryCode || "PK",
   };
 
   if (isMRMode) {

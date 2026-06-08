@@ -38,10 +38,10 @@ router.post('/save', authenticate, async (req, res) => {
       Systolic: vData.BP?.value1 || 'Not Performed',
       Diastolic: vData.BP?.value2 || 'Not Performed',
       Temperature: vData.Temperature || 'Not Performed',
-      temperatureUnit: vData.temperatureUnitture || 'Not Performed',
+      temperatureUnit: vData.temperatureUnit || '°C',
       Weight: vData.Weight || 'Not Performed',
       Height: vData.Height || 'Not Performed',
-      heightUnit: vData.heightUnit || 'Not Performed',
+      heightUnit: vData.heightUnit || 'ft',
       symptoms: vData.symptoms?.length
         ? (Array.isArray(vData.symptoms)
           ? vData.symptoms.join(',')
@@ -71,10 +71,10 @@ router.patch('/update/:vitalsId', authenticate, async (req, res) => {
         Systolic: vData.BP?.value1,
         Diastolic: vData.BP?.value2,
         Temperature: vData.Temperature,
-        temperatureUnit: vData.temperatureUnit,
+        temperatureUnit: vData.temperatureUnit || '°C',
         Weight: vData.Weight,
         Height: vData.Height,
-        heightUnit: vData.heightUnit,
+        heightUnit: vData.heightUnit || 'ft',
         symptoms: vData.symptoms?.length
           ? (Array.isArray(vData.symptoms)
             ? vData.symptoms.join(',')
@@ -117,6 +117,8 @@ router.get('/history-by-phone/:phone', authenticate, async (req: any, res: any) 
         symptoms: vitals.symptoms,
         createdDate: vitals.createdDate,
         createdTime: vitals.createdTime,
+        heightUnit: vitals.heightUnit,
+        temperatureUnit: vitals.temperatureUnit,
       })
       .from(vitals)
       .innerJoin(all_entries, eq(vitals.patient_id, all_entries.id))

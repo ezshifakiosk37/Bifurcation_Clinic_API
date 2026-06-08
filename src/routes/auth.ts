@@ -94,6 +94,7 @@ router.get('/me', async (req, res) => {
         location: users.location,
         country:  users.country,
         city:     users.city,
+        province: users.province,
       })
       .from(users)
       .where(eq(users.id, decoded.userId))

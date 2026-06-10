@@ -6,6 +6,21 @@ import { authenticate } from '../middleware/auth';
 import { eq, desc, and } from 'drizzle-orm';
 
 const router = Router();
+// ── Normalization helpers (always store °C and cm in DB) ──
+const normalizeTemperature = (temp: string, unit: string, fallback = 'Not Performed'): string => {
+  const t = parseFloat(temp);
+  if (isNaN(t)) return fallback;
+  return unit === '°F' ? ((t - 32) * 5 / 9).toFixed(1) : t.toFixed(1);
+};
+
+const normalizeHeight = (height: string, unit: string, fallback = 'Not Performed'): string => {
+  if (!height) return fallback;
+  const parsed = parseFloat(height);
+  if (unit === 'cm') return isNaN(parsed) ? fallback : parsed.toFixed(1);
+  const [f, i] = height.split('.');
+  const totalInches = (parseInt(f) || 0) * 12 + (parseInt(i) || 0);
+  return totalInches === 0 ? fallback : (totalInches * 2.54).toFixed(1);
+};
 
 router.post('/save', authenticate, async (req, res) => {
   const { patientId, vitals: vData } = req.body;
@@ -37,10 +52,10 @@ router.post('/save', authenticate, async (req, res) => {
       BloodOxygen: vData.Spo2 || 'Not Performed',
       Systolic: vData.BP?.value1 || 'Not Performed',
       Diastolic: vData.BP?.value2 || 'Not Performed',
-      Temperature: vData.Temperature || 'Not Performed',
+      Temperature: normalizeTemperature(vData.Temperature, vData.temperatureUnit || '°C'),
       temperatureUnit: vData.temperatureUnit || '°C',
       Weight: vData.Weight || 'Not Performed',
-      Height: vData.Height || 'Not Performed',
+      Height: normalizeHeight(vData.Height, vData.heightUnit || 'ft'),
       heightUnit: vData.heightUnit || 'ft',
       symptoms: vData.symptoms?.length
         ? (Array.isArray(vData.symptoms)
@@ -70,10 +85,10 @@ router.patch('/update/:vitalsId', authenticate, async (req, res) => {
         BloodOxygen: vData.Spo2,
         Systolic: vData.BP?.value1,
         Diastolic: vData.BP?.value2,
-        Temperature: vData.Temperature,
+        Temperature: normalizeTemperature(vData.Temperature, vData.temperatureUnit || '°C', vData.Temperature),
         temperatureUnit: vData.temperatureUnit || '°C',
         Weight: vData.Weight,
-        Height: vData.Height,
+        Height: normalizeHeight(vData.Height, vData.heightUnit || 'ft', vData.Height),
         heightUnit: vData.heightUnit || 'ft',
         symptoms: vData.symptoms?.length
           ? (Array.isArray(vData.symptoms)

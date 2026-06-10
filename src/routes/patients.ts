@@ -528,6 +528,21 @@ router.post('/save-vitals', authenticate, async (req: any, res: any) => {
 
     const { createdDate, createdTime } = getNow();
 
+    const normalizeTemperature = (temp: string, unit: string, fallback = 'Not Performed'): string => {
+      const t = parseFloat(temp);
+      if (isNaN(t)) return fallback;
+      return unit === '°F' ? ((t - 32) * 5 / 9).toFixed(1) : t.toFixed(1);
+    };
+
+    const normalizeHeight = (height: string, unit: string, fallback = 'Not Performed'): string => {
+      if (!height) return fallback;
+      const parsed = parseFloat(height);
+      if (unit === 'cm') return isNaN(parsed) ? fallback : parsed.toFixed(1);
+      const [f, i] = height.split('.');
+      const totalInches = (parseInt(f) || 0) * 12 + (parseInt(i) || 0);
+      return totalInches === 0 ? fallback : (totalInches * 2.54).toFixed(1);
+    };
+
     const newVital = await db.insert(vitals).values({
       patient_id: patientId,
       token: patient?.token ?? null,
@@ -537,9 +552,9 @@ router.post('/save-vitals', authenticate, async (req: any, res: any) => {
       BloodOxygen: v.Spo2?.toString(),
       Systolic: v.BP?.value1?.toString(),
       Diastolic: v.BP?.value2?.toString(),
-      Temperature: v.Temperature?.toString(),
+      Temperature: normalizeTemperature(v.Temperature?.toString() ?? '', v.temperatureUnit || '°C'),
       Weight: v.Weight?.toString(),
-      Height: v.Height?.toString(),
+      Height: normalizeHeight(v.Height?.toString() ?? '', v.heightUnit || 'ft'),
       bmi: v.bmi ? v.bmi.toString() : null,
       temperatureUnit: v.temperatureUnit || '°C',
       heightUnit: v.heightUnit || 'ft',

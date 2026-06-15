@@ -1114,4 +1114,85 @@ router.get('/patient-by-vitals/:vitalsId', authenticateDoctor, async (req: any, 
   }
 });
 
+// ─────────────────────────────────────────────
+// 9. GET TODAY'S TOKEN BY PHONE NUMBER
+// ─────────────────────────────────────────────
+router.get('/today-token/:phone', authenticateAny, async (req: any, res: any) => {
+  const phone = req.params.phone as string;
+  const today = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Karachi',
+    year: 'numeric', month: '2-digit', day: '2-digit',
+  }).format(new Date());
+
+  // Resolve clinic user_id from staff or doctor token
+  let scopedUserId: string | undefined;
+  if (req.user?.userId) {
+    scopedUserId = req.user.userId;
+  } else if (req.doctor?.doctorId) {
+    const [doc] = await db.select({ user_id: doctors.user_id })
+      .from(doctors)
+      .where(eq(doctors.id, req.doctor.doctorId))
+      .limit(1);
+    scopedUserId = doc?.user_id ?? undefined;
+  }
+
+  try {
+    // Find the patient with this phone number at this clinic
+    const [patient] = await db
+      .select({
+        id: all_entries.id,
+        token: all_entries.token,
+        tokenDate: all_entries.tokenDate,
+        tokenTime: all_entries.tokenTime,
+      })
+      .from(all_entries)
+      .where(and(
+        eq(all_entries.phoneNumber, phone),
+        eq(all_entries.tokenDate, today),
+        ...(scopedUserId ? [eq(all_entries.user_id, scopedUserId)] : []),
+      ))
+      .orderBy(desc(all_entries.tokenTime))
+      .limit(1);
+
+    if (!patient) {
+      return res.status(404).json({
+        success: false,
+        error: "No token generated for this phone number today."
+      });
+    }
+
+    // Check if this token already has a prescription (session ended)
+    const [prescription] = await db
+      .select({ id: prescriptions.id })
+      .from(prescriptions)
+      .where(
+        and(
+          eq(prescriptions.patient_id, patient.id),
+          eq(prescriptions.prescriptionDate, today),
+          eq(prescriptions.token, patient.token!)
+        )
+      )
+      .limit(1);
+
+    if (prescription) {
+      return res.status(409).json({
+        success: false,
+        error: "Token already used today (prescription exists)."
+      });
+    }
+
+    res.json({
+      success: true,
+      token: patient.token,
+      patientId: patient.id,
+      tokenDate: patient.tokenDate,
+      tokenTime: patient.tokenTime,
+    });
+  } catch (err: any) {
+    console.error("TODAY TOKEN BY PHONE ERROR:", err);
+    res.status(500).json({ error: "Failed to fetch today's token", details: err.message });
+  }
+});
+
+
 export default router;

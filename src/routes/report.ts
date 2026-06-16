@@ -96,13 +96,25 @@ router.get('/patient-email/:patientId', async (req: any, res: any) => {
   }
 });
 
-// ── POST /api/report/vitals/:vitalsId/send-email ──
-router.post('/vitals/:vitalsId/send-email', async (req: any, res: any) => {
-  const { email, payload } = req.body;
-  if (!email || !payload) return res.status(400).json({ success: false, error: 'Missing email or payload' });
 
+router.post('/vitals/:vitalsId/send-email', async (req: any, res: any) => {
   try {
+    console.log('BODY:', req.body);
+
+    const { email } = req.body;
+
+    if (!email) {
+      return res.status(400).json({
+        success: false,
+        error: 'Missing email'
+      });
+    }
+
     const nodemailer = await import('nodemailer');
+
+    console.log('EMAIL_USER:', process.env.EMAIL_USER);
+    console.log('EMAIL_PASS EXISTS:', !!process.env.EMAIL_PASS);
+
     const transporter = nodemailer.default.createTransport({
       service: 'gmail',
       auth: {
@@ -111,20 +123,58 @@ router.post('/vitals/:vitalsId/send-email', async (req: any, res: any) => {
       },
     });
 
-    const sectionsText = (payload.reportSections as string[]).join('\n\n');
-
-    await transporter.sendMail({
-      from: `"EZShifa Digital Health" <${process.env.EMAIL_USER}>`,
+    const info = await transporter.sendMail({
+      from: process.env.EMAIL_USER,
       to: email,
-      subject: `Vital Report — ${payload.patient?.name ?? 'Patient'} (Token #${payload.token})`,
-      text: `EZShifa Digital Health\nVital Report\n\nName: ${payload.patient?.name}\nPhone: ${payload.patient?.phone}\nAge/Sex: ${payload.patient?.ageSex}\nToken: #${payload.token}\nDate: ${payload.date}\n\n${sectionsText}\n\nThis report is from EZShifa Digital Health.`,
+      subject: 'Test Email',
+      text: 'Vital report test email from EZShifa'
     });
 
-    res.json({ success: true });
+    console.log('EMAIL SENT:', info);
+
+    return res.json({
+      success: true
+    });
+
   } catch (err: any) {
     console.error('SEND EMAIL ERROR:', err);
-    res.status(500).json({ success: false, error: 'Failed to send email', details: err.message });
+
+    return res.status(500).json({
+      success: false,
+      error: err.message,
+      details: err
+    });
   }
 });
+// // ── POST /api/report/vitals/:vitalsId/send-email ──
+// router.post('/vitals/:vitalsId/send-email', async (req: any, res: any) => {
+//   const { email, payload } = req.body;
+//   if (!email || !payload) return res.status(400).json({ success: false, error: 'Missing email or payload' });
+
+//   try {
+//     const nodemailer = await import('nodemailer');
+//     const transporter = nodemailer.default.createTransport({
+//       service: 'gmail',
+//       auth: {
+//         user: process.env.EMAIL_USER,
+//         pass: process.env.EMAIL_PASS,
+//       },
+//     });
+
+//     const sectionsText = (payload.reportSections as string[]).join('\n\n');
+
+//     await transporter.sendMail({
+//       from: `"EZShifa Digital Health" <${process.env.EMAIL_USER}>`,
+//       to: email,
+//       subject: `Vital Report — ${payload.patient?.name ?? 'Patient'} (Token #${payload.token})`,
+//       text: `EZShifa Digital Health\nVital Report\n\nName: ${payload.patient?.name}\nPhone: ${payload.patient?.phone}\nAge/Sex: ${payload.patient?.ageSex}\nToken: #${payload.token}\nDate: ${payload.date}\n\n${sectionsText}\n\nThis report is from EZShifa Digital Health.`,
+//     });
+
+//     res.json({ success: true });
+//   } catch (err: any) {
+//     console.error('SEND EMAIL ERROR:', err);
+//     res.status(500).json({ success: false, error: 'Failed to send email', details: err.message });
+//   }
+// });
 
 export default router;

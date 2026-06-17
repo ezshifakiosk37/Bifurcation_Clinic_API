@@ -96,57 +96,6 @@ router.get('/patient-email/:patientId', async (req: any, res: any) => {
   }
 });
 
-
-// router.post('/vitals/:vitalsId/send-email', async (req: any, res: any) => {
-//   try {
-//     console.log('BODY:', req.body);
-
-//     const { email } = req.body;
-
-//     if (!email) {
-//       return res.status(400).json({
-//         success: false,
-//         error: 'Missing email'
-//       });
-//     }
-
-//     const nodemailer = await import('nodemailer');
-
-//     console.log('EMAIL_USER:', process.env.EMAIL_USER);
-//     console.log('EMAIL_PASS EXISTS:', !!process.env.EMAIL_PASS);
-
-//     const transporter = nodemailer.default.createTransport({
-//       service: 'gmail',
-//       auth: {
-//         user: process.env.EMAIL_USER,
-//         pass: process.env.EMAIL_PASS,
-//       },
-//     });
-
-//     const info = await transporter.sendMail({
-//       from: process.env.EMAIL_USER,
-//       to: email,
-//       subject: 'Test Email',
-//       text: 'Vital report test email from EZShifa'
-//     });
-
-//     console.log('EMAIL SENT:', info);
-
-//     return res.json({
-//       success: true
-//     });
-
-//   } catch (err: any) {
-//     console.error('SEND EMAIL ERROR:', err);
-
-//     return res.status(500).json({
-//       success: false,
-//       error: err.message,
-//       details: err
-//     });
-//   }
-// });
-
 // ── POST /api/report/vitals/:vitalsId/send-email ──
 router.post('/vitals/:vitalsId/send-email', async (req: any, res: any) => {
   const { email, payload } = req.body;
@@ -178,6 +127,8 @@ router.post('/vitals/:vitalsId/send-email', async (req: any, res: any) => {
   }
 });
 
+
+//add and update email
 // ── PATCH /api/report/patient-email/:patientId — update/add email ──
 router.patch('/patient-email/:patientId', async (req: any, res: any) => {
   const { patientId } = req.params;

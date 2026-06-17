@@ -142,6 +142,8 @@ router.patch('/patient-email/:patientId', async (req: any, res: any) => {
   }
 });
 
+const isValidEmail = (email: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
+
 // ── POST /api/report/vitals/:vitalsId/send-email-pdf — send PDF attachment ──
 router.post('/vitals/:vitalsId/send-email-pdf', async (req: any, res: any) => {
   try {
@@ -156,6 +158,9 @@ router.post('/vitals/:vitalsId/send-email-pdf', async (req: any, res: any) => {
 
       if (!email || !pdfBuffer) {
         return res.status(400).json({ success: false, error: 'Missing email or PDF' });
+      }
+      if (!isValidEmail(email)) {
+        return res.status(400).json({ success: false, error: 'Invalid email address' });
       }
 
       const nodemailer = await import('nodemailer');

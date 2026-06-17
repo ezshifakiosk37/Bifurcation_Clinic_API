@@ -178,4 +178,61 @@ router.post('/vitals/:vitalsId/send-email', async (req: any, res: any) => {
   }
 });
 
+// ── PATCH /api/report/patient-email/:patientId — update/add email ──
+router.patch('/patient-email/:patientId', async (req: any, res: any) => {
+  const { patientId } = req.params;
+  const { email } = req.body;
+  if (!email) return res.status(400).json({ success: false, error: 'Email required' });
+  try {
+    await db.update(all_entries).set({ email: email.trim() }).where(eq(all_entries.id, patientId));
+    res.json({ success: true });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: 'Failed to update email', details: err.message });
+  }
+});
+
+// ── POST /api/report/vitals/:vitalsId/send-email-pdf — send PDF attachment ──
+router.post('/vitals/:vitalsId/send-email-pdf', async (req: any, res: any) => {
+  try {
+    const multer = await import('multer');
+    const upload = multer.default({ storage: multer.default.memoryStorage() }).single('pdf');
+
+    upload(req, res, async (err: any) => {
+      if (err) return res.status(400).json({ success: false, error: 'File upload error' });
+
+      const { email, patientName, token } = req.body;
+      const pdfBuffer = req.file?.buffer;
+
+      if (!email || !pdfBuffer) {
+        return res.status(400).json({ success: false, error: 'Missing email or PDF' });
+      }
+
+      const nodemailer = await import('nodemailer');
+      const transporter = nodemailer.default.createTransport({
+        service: 'gmail',
+        auth: { user: process.env.EMAIL_USER, pass: process.env.EMAIL_PASS },
+      });
+
+      await transporter.sendMail({
+        from: `"EZShifa Digital Health" <${process.env.EMAIL_USER}>`,
+        to: email,
+        subject: `Vital Report — ${patientName ?? 'Patient'} (Token #${token ?? ''})`,
+        text: `Dear ${patientName ?? 'Patient'},\n\nPlease find your vital report attached.\n\nEZShifa Digital Health`,
+        attachments: [{
+          filename: `${(patientName ?? 'Patient').replace(/ /g, '_')}.pdf`,
+          content: pdfBuffer,
+          contentType: 'application/pdf',
+        }],
+      });
+
+      res.json({ success: true });
+    });
+  } catch (err: any) {
+    console.error('SEND EMAIL PDF ERROR:', err);
+    res.status(500).json({ success: false, error: 'Failed to send email', details: err.message });
+  }
+});
+
 export default router;
+
+

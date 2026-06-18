@@ -67,53 +67,6 @@ router.post('/save', authenticate, async (req, res) => {
       callStatus: "idle",
     }).returning();
 
-    // ── Auto-copy existing test rows from the latest prior vitals for this patient+token ──
-    const [priorVitals] = await db
-      .select({ id: vitals.id })
-      .from(vitals)
-      .where(
-        and(
-          eq(vitals.patient_id, patientId),
-          eq(vitals.token, patient?.token ?? ''),
-          sql`${vitals.id} != ${inserted.id}`
-        )
-      )
-      .orderBy(desc(vitals.createdDate), desc(vitals.createdTime))
-      .limit(1);
-
-    if (priorVitals) {
-      const oldId = priorVitals.id;
-      const newId = inserted.id;
-
-      // Copy rapid testing
-      const [oldRapid] = await db.select().from(rapid_testing).where(eq(rapid_testing.vitals_id, oldId)).limit(1);
-      if (oldRapid) {
-        const { id: _r, vitals_id: _rv, createdDate: _rd, createdTime: _rt, ...rapidFields } = oldRapid;
-        await db.insert(rapid_testing).values({ ...rapidFields, vitals_id: newId, createdDate, createdTime });
-      }
-
-      // Copy eye testing
-      const [oldEye] = await db.select().from(eye_testing).where(eq(eye_testing.vitals_id, oldId)).limit(1);
-      if (oldEye) {
-        const { id: _e, vitals_id: _ev, createdDate: _ed, createdTime: _et, ...eyeFields } = oldEye;
-        await db.insert(eye_testing).values({ ...eyeFields, vitals_id: newId, createdDate, createdTime });
-      }
-
-      // Copy color blind testing
-      const [oldColor] = await db.select().from(color_blind_testing).where(eq(color_blind_testing.vitals_id, oldId)).limit(1);
-      if (oldColor) {
-        const { id: _c, vitals_id: _cv, createdDate: _cd, createdTime: _ct, ...colorFields } = oldColor;
-        await db.insert(color_blind_testing).values({ ...colorFields, vitals_id: newId, createdDate, createdTime });
-      }
-
-      // Copy hearing testing
-      const [oldHearing] = await db.select().from(hearing_testing).where(eq(hearing_testing.vitals_id, oldId)).limit(1);
-      if (oldHearing) {
-        const { id: _h, vitals_id: _hv, createdDate: _hd, createdTime: _ht, ...hearingFields } = oldHearing;
-        await db.insert(hearing_testing).values({ ...hearingFields, vitals_id: newId, createdDate, createdTime });
-      }
-    }
-
     res.json({ success: true, vitalsId: inserted.id });
   } catch (err) {
     console.error("Save Error:", err);

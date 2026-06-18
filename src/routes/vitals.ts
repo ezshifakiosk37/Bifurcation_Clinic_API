@@ -3,9 +3,22 @@ import { Router } from 'express';
 import { db } from '../db';
 import { vitals, all_entries, rapid_testing, eye_testing, color_blind_testing, hearing_testing } from '../db/schema';
 import { authenticate } from '../middleware/auth';
-import { eq, desc, and, sql } from 'drizzle-orm';
+import { eq, desc, and } from 'drizzle-orm';
 
 const router = Router();
+// Helper to get PKT date/time (reuse the same logic as above)
+const getPktDateTime = () => {
+  const now = new Date();
+  const createdDate = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Karachi',
+    year: 'numeric', month: '2-digit', day: '2-digit',
+  }).format(now);
+  const createdTime = new Intl.DateTimeFormat('en-GB', {
+    timeZone: 'Asia/Karachi',
+    hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false,
+  }).format(now);
+  return { createdDate, createdTime };
+};
 // ── Normalization helpers (always store °C and cm in DB) ──
 const normalizeTemperature = (temp: string, unit: string, fallback = 'Not Performed'): string => {
   const t = parseFloat(temp);
@@ -67,108 +80,97 @@ router.post('/save', authenticate, async (req, res) => {
       callStatus: "idle",
     }).returning();
 
-    // ── Background: copy test rows from prior vitals for same patient+token ──
-    // Run async, don't await — response goes back immediately, copy happens in background
     const newVitalsId = inserted.id;
-    const patientToken = patient?.token ?? null;
-
-    if (patientToken) {
-      (async () => {
-        try {
-          // Find the most recent prior vitals row for this patient+token (not the one we just inserted)
-          // Also verify it belongs to the same patient (security: patientId is already scoped by auth)
-          const [priorRow] = await db
-            .select({ id: vitals.id })
-            .from(vitals)
-            .where(
-              and(
-                eq(vitals.patient_id, patientId),
-                eq(vitals.token, patientToken),
-                sql`${vitals.id}::text != ${newVitalsId}::text`
-              )
-            )
-            .orderBy(desc(vitals.createdDate), desc(vitals.createdTime))
-            .limit(1);
-
-          if (!priorRow) return; // first vitals entry for this token, nothing to copy
-
-          const oldId = priorRow.id;
-
-          // ── Copy rapid testing ──
-          const [oldRapid] = await db
-            .select()
-            .from(rapid_testing)
-            .where(eq(rapid_testing.vitals_id, oldId))
-            .limit(1);
-          if (oldRapid) {
-            const { id: _r, vitals_id: _rv, createdDate: _rd, createdTime: _rt, ...rapidFields } = oldRapid;
-            await db.insert(rapid_testing).values({
-              ...rapidFields,
-              vitals_id: newVitalsId,
-              createdDate,
-              createdTime,
-            });
-          }
-
-          // ── Copy eye testing ──
-          const [oldEye] = await db
-            .select()
-            .from(eye_testing)
-            .where(eq(eye_testing.vitals_id, oldId))
-            .limit(1);
-          if (oldEye) {
-            const { id: _e, vitals_id: _ev, createdDate: _ed, createdTime: _et, ...eyeFields } = oldEye;
-            await db.insert(eye_testing).values({
-              ...eyeFields,
-              vitals_id: newVitalsId,
-              createdDate,
-              createdTime,
-            });
-          }
-
-          // ── Copy color blind testing ──
-          const [oldColor] = await db
-            .select()
-            .from(color_blind_testing)
-            .where(eq(color_blind_testing.vitals_id, oldId))
-            .limit(1);
-          if (oldColor) {
-            const { id: _c, vitals_id: _cv, createdDate: _cd, createdTime: _ct, ...colorFields } = oldColor;
-            await db.insert(color_blind_testing).values({
-              ...colorFields,
-              vitals_id: newVitalsId,
-              createdDate,
-              createdTime,
-            });
-          }
-
-          // ── Copy hearing testing ──
-          const [oldHearing] = await db
-            .select()
-            .from(hearing_testing)
-            .where(eq(hearing_testing.vitals_id, oldId))
-            .limit(1);
-          if (oldHearing) {
-            const { id: _h, vitals_id: _hv, createdDate: _hd, createdTime: _ht, ...hearingFields } = oldHearing;
-            await db.insert(hearing_testing).values({
-              ...hearingFields,
-              vitals_id: newVitalsId,
-              createdDate,
-              createdTime,
-            });
-          }
-
-        } catch (copyErr) {
-          // Non-fatal — log but don't crash the request
-          console.error("Background test copy error:", copyErr);
-        }
-      })();
-    }
-
+    
     res.json({ success: true, vitalsId: newVitalsId });
   } catch (err) {
     console.error("Save Error:", err);
     res.status(500).json({ error: "Failed to save vitals" });
+  }
+});
+router.post('/copy-tests', authenticate, async (req: any, res: any) => {
+  const { oldVitalsId, newVitalsId } = req.body;
+  if (!oldVitalsId || !newVitalsId) {
+    return res.status(400).json({ success: false, error: 'oldVitalsId and newVitalsId are required' });
+  }
+
+  try {
+    // ── Security: verify both vitals rows belong to the same patient under this user ──
+    const [oldRow] = await db
+      .select({ patient_id: vitals.patient_id })
+      .from(vitals)
+      .innerJoin(all_entries, eq(vitals.patient_id, all_entries.id))
+      .where(
+        and(
+          eq(vitals.id, oldVitalsId),
+          eq(all_entries.user_id, req.user.userId)
+        )
+      )
+      .limit(1);
+
+    const [newRow] = await db
+      .select({ patient_id: vitals.patient_id })
+      .from(vitals)
+      .innerJoin(all_entries, eq(vitals.patient_id, all_entries.id))
+      .where(
+        and(
+          eq(vitals.id, newVitalsId),
+          eq(all_entries.user_id, req.user.userId)
+        )
+      )
+      .limit(1);
+
+    // Both rows must exist, belong to this clinic, and be for the same patient
+    if (!oldRow || !newRow || oldRow.patient_id !== newRow.patient_id) {
+      return res.status(403).json({ success: false, error: 'Unauthorized or mismatched vitals rows' });
+    }
+
+    const { createdDate, createdTime } = getPktDateTime();
+
+    // ── Copy rapid testing ──
+    const [oldRapid] = await db.select().from(rapid_testing).where(eq(rapid_testing.vitals_id, oldVitalsId)).limit(1);
+    if (oldRapid) {
+      const [alreadyExists] = await db.select({ id: rapid_testing.id }).from(rapid_testing).where(eq(rapid_testing.vitals_id, newVitalsId)).limit(1);
+      if (!alreadyExists) {
+        const { id: _r, vitals_id: _rv, createdDate: _rd, createdTime: _rt, ...rapidFields } = oldRapid;
+        await db.insert(rapid_testing).values({ ...rapidFields, vitals_id: newVitalsId, createdDate, createdTime });
+      }
+    }
+
+    // ── Copy eye testing ──
+    const [oldEye] = await db.select().from(eye_testing).where(eq(eye_testing.vitals_id, oldVitalsId)).limit(1);
+    if (oldEye) {
+      const [alreadyExists] = await db.select({ id: eye_testing.id }).from(eye_testing).where(eq(eye_testing.vitals_id, newVitalsId)).limit(1);
+      if (!alreadyExists) {
+        const { id: _e, vitals_id: _ev, createdDate: _ed, createdTime: _et, ...eyeFields } = oldEye;
+        await db.insert(eye_testing).values({ ...eyeFields, vitals_id: newVitalsId, createdDate, createdTime });
+      }
+    }
+
+    // ── Copy color blind testing ──
+    const [oldColor] = await db.select().from(color_blind_testing).where(eq(color_blind_testing.vitals_id, oldVitalsId)).limit(1);
+    if (oldColor) {
+      const [alreadyExists] = await db.select({ id: color_blind_testing.id }).from(color_blind_testing).where(eq(color_blind_testing.vitals_id, newVitalsId)).limit(1);
+      if (!alreadyExists) {
+        const { id: _c, vitals_id: _cv, createdDate: _cd, createdTime: _ct, ...colorFields } = oldColor;
+        await db.insert(color_blind_testing).values({ ...colorFields, vitals_id: newVitalsId, createdDate, createdTime });
+      }
+    }
+
+    // ── Copy hearing testing ──
+    const [oldHearing] = await db.select().from(hearing_testing).where(eq(hearing_testing.vitals_id, oldVitalsId)).limit(1);
+    if (oldHearing) {
+      const [alreadyExists] = await db.select({ id: hearing_testing.id }).from(hearing_testing).where(eq(hearing_testing.vitals_id, newVitalsId)).limit(1);
+      if (!alreadyExists) {
+        const { id: _h, vitals_id: _hv, createdDate: _hd, createdTime: _ht, ...hearingFields } = oldHearing;
+        await db.insert(hearing_testing).values({ ...hearingFields, vitals_id: newVitalsId, createdDate, createdTime });
+      }
+    }
+
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Copy tests error:', err);
+    res.status(500).json({ success: false, error: 'Failed to copy test data' });
   }
 });
 
@@ -422,22 +424,6 @@ router.get('/rapid-testing/:vitalsId', authenticate, async (req, res) => {
 });
 
 // EYE TESTING + COLOR BLIND (eye_testing)
-// ─────────────────────────────────────────────
-
-// Helper to get PKT date/time (reuse the same logic as above)
-const getPktDateTime = () => {
-  const now = new Date();
-  const createdDate = new Intl.DateTimeFormat('en-CA', {
-    timeZone: 'Asia/Karachi',
-    year: 'numeric', month: '2-digit', day: '2-digit',
-  }).format(now);
-  const createdTime = new Intl.DateTimeFormat('en-GB', {
-    timeZone: 'Asia/Karachi',
-    hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false,
-  }).format(now);
-  return { createdDate, createdTime };
-};
-
 // POST /api/vitals/eye-testing/save
 router.post('/eye-testing/save', authenticate, async (req, res) => {
   const { vitalsId, eyeData } = req.body;

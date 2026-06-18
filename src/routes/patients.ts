@@ -992,7 +992,7 @@ router.get('/vitals-queue', authenticateAny, async (req: any, res) => {
       .from(all_entries)
       .where(and(
         eq(all_entries.tokenDate, today),
-        eq(all_entries.vitalsRecorded, false),
+        // eq(all_entries.vitalsRecorded, false),
         eq(all_entries.user_id, (req as any).user.userId),
       ))
       .orderBy(all_entries.tokenTime);

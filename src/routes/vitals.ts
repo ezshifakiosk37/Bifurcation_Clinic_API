@@ -81,7 +81,7 @@ router.post('/save', authenticate, async (req, res) => {
     }).returning();
 
     const newVitalsId = inserted.id;
-    
+
     res.json({ success: true, vitalsId: newVitalsId });
   } catch (err) {
     console.error("Save Error:", err);
@@ -126,6 +126,22 @@ router.post('/copy-tests', authenticate, async (req: any, res: any) => {
     }
 
     const { createdDate, createdTime } = getPktDateTime();
+
+    // ── Copy symptoms ──
+    const [oldVitals] = await db
+      .select({ symptoms: vitals.symptoms })
+      .from(vitals)
+      .where(eq(vitals.id, oldVitalsId))
+      .limit(1);
+
+    if (oldVitals) {
+      await db
+        .update(vitals)
+        .set({
+          symptoms: oldVitals.symptoms,
+        })
+        .where(eq(vitals.id, newVitalsId));
+    }
 
     // ── Copy rapid testing ──
     const [oldRapid] = await db.select().from(rapid_testing).where(eq(rapid_testing.vitals_id, oldVitalsId)).limit(1);

@@ -67,54 +67,105 @@ router.post('/save', authenticate, async (req, res) => {
       callStatus: "idle",
     }).returning();
 
-    // ── Auto-copy existing test rows from the latest prior vitals for this patient+token ──
-    const [priorVitals] = await db
-      .select({ id: vitals.id })
-      .from(vitals)
-      .where(
-        and(
-          eq(vitals.patient_id, patientId),
-          eq(vitals.token, patient?.token ?? ''),
-          sql`${vitals.id} != ${inserted.id}`
-        )
-      )
-      .orderBy(desc(vitals.createdDate), desc(vitals.createdTime))
-      .limit(1);
+    // ── Background: copy test rows from prior vitals for same patient+token ──
+    // Run async, don't await — response goes back immediately, copy happens in background
+    const newVitalsId = inserted.id;
+    const patientToken = patient?.token ?? null;
 
-    if (priorVitals) {
-      const oldId = priorVitals.id;
-      const newId = inserted.id;
+    if (patientToken) {
+      (async () => {
+        try {
+          // Find the most recent prior vitals row for this patient+token (not the one we just inserted)
+          // Also verify it belongs to the same patient (security: patientId is already scoped by auth)
+          const [priorRow] = await db
+            .select({ id: vitals.id })
+            .from(vitals)
+            .where(
+              and(
+                eq(vitals.patient_id, patientId),
+                eq(vitals.token, patientToken),
+                sql`${vitals.id}::text != ${newVitalsId}::text`
+              )
+            )
+            .orderBy(desc(vitals.createdDate), desc(vitals.createdTime))
+            .limit(1);
 
-      // Copy rapid testing
-      const [oldRapid] = await db.select().from(rapid_testing).where(eq(rapid_testing.vitals_id, oldId)).limit(1);
-      if (oldRapid) {
-        const { id: _r, vitals_id: _rv, createdDate: _rd, createdTime: _rt, ...rapidFields } = oldRapid;
-        await db.insert(rapid_testing).values({ ...rapidFields, vitals_id: newId, createdDate, createdTime });
-      }
+          if (!priorRow) return; // first vitals entry for this token, nothing to copy
 
-      // Copy eye testing
-      const [oldEye] = await db.select().from(eye_testing).where(eq(eye_testing.vitals_id, oldId)).limit(1);
-      if (oldEye) {
-        const { id: _e, vitals_id: _ev, createdDate: _ed, createdTime: _et, ...eyeFields } = oldEye;
-        await db.insert(eye_testing).values({ ...eyeFields, vitals_id: newId, createdDate, createdTime });
-      }
+          const oldId = priorRow.id;
 
-      // Copy color blind testing
-      const [oldColor] = await db.select().from(color_blind_testing).where(eq(color_blind_testing.vitals_id, oldId)).limit(1);
-      if (oldColor) {
-        const { id: _c, vitals_id: _cv, createdDate: _cd, createdTime: _ct, ...colorFields } = oldColor;
-        await db.insert(color_blind_testing).values({ ...colorFields, vitals_id: newId, createdDate, createdTime });
-      }
+          // ── Copy rapid testing ──
+          const [oldRapid] = await db
+            .select()
+            .from(rapid_testing)
+            .where(eq(rapid_testing.vitals_id, oldId))
+            .limit(1);
+          if (oldRapid) {
+            const { id: _r, vitals_id: _rv, createdDate: _rd, createdTime: _rt, ...rapidFields } = oldRapid;
+            await db.insert(rapid_testing).values({
+              ...rapidFields,
+              vitals_id: newVitalsId,
+              createdDate,
+              createdTime,
+            });
+          }
 
-      // Copy hearing testing
-      const [oldHearing] = await db.select().from(hearing_testing).where(eq(hearing_testing.vitals_id, oldId)).limit(1);
-      if (oldHearing) {
-        const { id: _h, vitals_id: _hv, createdDate: _hd, createdTime: _ht, ...hearingFields } = oldHearing;
-        await db.insert(hearing_testing).values({ ...hearingFields, vitals_id: newId, createdDate, createdTime });
-      }
+          // ── Copy eye testing ──
+          const [oldEye] = await db
+            .select()
+            .from(eye_testing)
+            .where(eq(eye_testing.vitals_id, oldId))
+            .limit(1);
+          if (oldEye) {
+            const { id: _e, vitals_id: _ev, createdDate: _ed, createdTime: _et, ...eyeFields } = oldEye;
+            await db.insert(eye_testing).values({
+              ...eyeFields,
+              vitals_id: newVitalsId,
+              createdDate,
+              createdTime,
+            });
+          }
+
+          // ── Copy color blind testing ──
+          const [oldColor] = await db
+            .select()
+            .from(color_blind_testing)
+            .where(eq(color_blind_testing.vitals_id, oldId))
+            .limit(1);
+          if (oldColor) {
+            const { id: _c, vitals_id: _cv, createdDate: _cd, createdTime: _ct, ...colorFields } = oldColor;
+            await db.insert(color_blind_testing).values({
+              ...colorFields,
+              vitals_id: newVitalsId,
+              createdDate,
+              createdTime,
+            });
+          }
+
+          // ── Copy hearing testing ──
+          const [oldHearing] = await db
+            .select()
+            .from(hearing_testing)
+            .where(eq(hearing_testing.vitals_id, oldId))
+            .limit(1);
+          if (oldHearing) {
+            const { id: _h, vitals_id: _hv, createdDate: _hd, createdTime: _ht, ...hearingFields } = oldHearing;
+            await db.insert(hearing_testing).values({
+              ...hearingFields,
+              vitals_id: newVitalsId,
+              createdDate,
+              createdTime,
+            });
+          }
+
+        } catch (copyErr) {
+          // Non-fatal — log but don't crash the request
+          console.error("Background test copy error:", copyErr);
+        }
+      })();
     }
 
-    res.json({ success: true, vitalsId: inserted.id });
+    res.json({ success: true, vitalsId: newVitalsId });
   } catch (err) {
     console.error("Save Error:", err);
     res.status(500).json({ error: "Failed to save vitals" });

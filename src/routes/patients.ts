@@ -988,6 +988,7 @@ router.get('/vitals-queue', authenticateAny, async (req: any, res) => {
         age: all_entries.age,
         gender: all_entries.gender,
         tokenTime: all_entries.tokenTime,
+        vitalsRecorded: all_entries.vitalsRecorded,
       })
       .from(all_entries)
       .where(and(

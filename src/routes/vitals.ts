@@ -121,6 +121,28 @@ router.post('/save', authenticate, async (req, res) => {
   }
 });
 
+router.patch('/update-symptoms/:vitalsId', authenticate, async (req, res) => {
+  const { vitalsId } = req.params;
+  const { symptoms, bmi } = req.body;
+
+  try {
+    const [updated] = await db.update(vitals)
+      .set({
+        symptoms: Array.isArray(symptoms)
+          ? symptoms.join(',')
+          : (symptoms || 'Unknown'),
+        ...(bmi !== undefined && { bmi: bmi ? bmi.toString() : null }),
+      })
+      .where(eq(vitals.id, vitalsId as string))
+      .returning();
+
+    res.json({ success: true, data: updated });
+  } catch (err) {
+    console.error("Update Symptoms Error:", err);
+    res.status(500).json({ error: "Failed to update symptoms" });
+  }
+});
+
 router.patch('/update/:vitalsId', authenticate, async (req, res) => {
   const { vitalsId } = req.params;
   const { vitals: vData } = req.body;

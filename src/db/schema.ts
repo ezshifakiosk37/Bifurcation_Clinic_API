@@ -3,6 +3,35 @@ import { pgTable, text, timestamp, uuid, varchar, integer, date, time, boolean, 
 import { relations } from "drizzle-orm";
 import { serial } from "drizzle-orm/pg-core";
 
+//admin portal
+
+export const admins = pgTable('admins', {
+  id: uuid("id").primaryKey().defaultRandom(),
+  username: varchar("username", { length: 50 }).notNull().unique(),
+  name: text("name").notNull().default("null"),
+  email: text("email").notNull().default("null"),
+  password: text('password').notNull(),
+  role:text("role").notNull().default("admin"),
+  status: text("status").notNull().default("Active"), // 'Active' | 'Suspended'
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+});
+//admin audit
+export const auditLogs = pgTable('audit_logs', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  actorId: uuid('actor_id').notNull(),
+  actorName: text('actor_name').notNull(),
+  actorRole: text('actor_role').notNull(),
+  action: text('action').notNull(),
+  entityType: text('entity_type'),
+  entityId: text('entity_id'),
+  entityName: text('entity_name'),
+  description: text('description').notNull(),
+  changes: jsonb('changes'),
+  ipAddress: text('ip_address'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+});
+
+
 // staff/users/clinic
 export const users = pgTable("users", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -14,7 +43,7 @@ export const users = pgTable("users", {
   country: text("country").notNull().default("null"),
   city: text("city").notNull().default("null"),
   province: text("province").notNull().default("null"),
-
+  status: text("status").notNull().default("Active"),
 });
 
 export const all_entries = pgTable("all_entries", {
@@ -162,7 +191,7 @@ export const doctors = pgTable("doctors", {
   qualifications: jsonb("qualifications").notNull().default([]),
   experience: integer("experience").default(0),
   city: text("city"),
-  doctorStatus: text("doctorStatus").default("online"),
+  doctorStatus: text("doctorStatus").default("offline"),
 
   user_id: uuid("user_id").references(() => users.id),
 

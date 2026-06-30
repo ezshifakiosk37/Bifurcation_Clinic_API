@@ -71,7 +71,6 @@ router.post('/ecg-report', authenticate, upload.single('file'), async (req: any,
       cloudinary.uploader.upload_stream(
         {
           resource_type: 'raw',
-          folder: 'ecg_reports',    // can also be part of public_id
           public_id: publicId,      // full path including folder
         },
         (error, result) => {

@@ -44,4 +44,53 @@ router.post('/patient-photo', authenticate, upload.single('photo'), async (req: 
   }
 });
 
+
+router.post('/ecg-report', authenticate, upload.single('file'), async (req: any, res: any) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: 'No file uploaded' });
+    }
+
+    // 1. Get patient info from the request body
+    const patientName = req.body.patientName || 'unknown';
+    const patientPhone = req.body.patientPhone || 'unknown';
+
+    // 2. Sanitize: remove special chars, replace spaces with underscores
+    const sanitize = (str: string) =>
+      str.replace(/[^a-zA-Z0-9]/g, '_').substring(0, 50); // limit length
+
+    const safeName = sanitize(patientName);
+    const safePhone = sanitize(patientPhone);
+    const timestamp = Date.now();
+
+    // 3. Build a unique public_id
+    const publicId = `ecg_reports/${safeName}_${timestamp}_${safePhone}`;
+
+    // 4. Upload to Cloudinary with this public_id
+    const result = await new Promise<any>((resolve, reject) => {
+      cloudinary.uploader.upload_stream(
+        {
+          resource_type: 'raw',
+          folder: 'ecg_reports',    // can also be part of public_id
+          public_id: publicId,      // full path including folder
+        },
+        (error, result) => {
+          if (error) reject(error);
+          else resolve(result);
+        }
+      ).end(req.file.buffer);
+    });
+
+    res.json({
+      success: true,
+      url: result.secure_url,
+      publicId: result.public_id,
+    });
+  } catch (err: any) {
+    console.error('ECG upload error:', err);
+    res.status(500).json({ error: 'Upload failed', details: err.message });
+  }
+});
+
+
 export default router;

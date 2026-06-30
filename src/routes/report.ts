@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { db } from '../db';
-import { all_entries, vitals, rapid_testing, eye_testing, color_blind_testing, hearing_testing } from '../db/schema';
-import { eq } from 'drizzle-orm';
+import { all_entries, vitals, rapid_testing, eye_testing, color_blind_testing, hearing_testing, prescriptions, prescription_medicines, doctors } from '../db/schema';
+import { eq, and, desc } from 'drizzle-orm';
 
 const router = Router();
 
@@ -31,6 +31,57 @@ router.get('/vitals/:vitalsId', async (req, res) => {
     const colorBlind = await db.select().from(color_blind_testing).where(eq(color_blind_testing.vitals_id, vitalsId)).limit(1);
     // 6. Get hearing testing
     const hearing = await db.select().from(hearing_testing).where(eq(hearing_testing.vitals_id, vitalsId)).limit(1);
+
+    // 7. Get the prescription tied to this exact visit.
+    // Match patient + token + same calendar date as the vitals record was created on.
+    // (Token is unique per patient per day, and the prescription is always saved
+    // during the same call session as the vitals row, so this triple is unambiguous
+    // even if the patient has multiple visits/tokens/prescriptions on other dates.)
+    const prescriptionConditions = [
+      eq(prescriptions.patient_id, v.patient_id),
+      eq(prescriptions.token, v.token ?? ''),
+    ];
+    if (v.createdDate) {
+      prescriptionConditions.push(eq(prescriptions.prescriptionDate, v.createdDate));
+    }
+
+    const prescriptionRecord = await db
+      .select()
+      .from(prescriptions)
+      .where(and(...prescriptionConditions))
+      .orderBy(desc(prescriptions.prescriptionTime))
+      .limit(1);
+
+    let prescriptionData = null;
+    if (prescriptionRecord.length) {
+      const presc = prescriptionRecord[0];
+      const medicines = await db
+        .select()
+        .from(prescription_medicines)
+        .where(eq(prescription_medicines.prescription_id, presc.id));
+      const docRows = await db.select().from(doctors).where(eq(doctors.id, presc.doctor_id)).limit(1);
+      const doc = docRows[0];
+
+      prescriptionData = {
+        id: presc.id,
+        diagnosis: presc.diagnosis,
+        labTest: presc.labTest,
+        clinicalNotes: presc.clinicalNotes,
+        prescriptionDate: presc.prescriptionDate,
+        prescriptionTime: presc.prescriptionTime,
+        doctor: doc ? { name: `${doc.title} ${doc.firstName} ${doc.lastName}`, specializations: doc.specializations } : null,
+        medicines: medicines.map(m => ({
+          name: m.medicineName,
+          dosage: m.dosage,
+          duration: m.duration,
+          morning: m.morning,
+          afternoon: m.afternoon,
+          night: m.night,
+          beforeMeal: m.beforeMeal,
+          afterMeal: m.afterMeal,
+        })),
+      };
+    }
 
     // Build response
     const reportData = {
@@ -63,9 +114,9 @@ router.get('/vitals/:vitalsId', async (req, res) => {
         eyeTesting: eye[0] || null,
         colorBlindTesting: colorBlind[0] || null,
         hearingTesting: hearing[0] || null,
+        prescription: prescriptionData,
       }
     };
-
     return res.json(reportData);
   } catch (error) {
     console.error(error);

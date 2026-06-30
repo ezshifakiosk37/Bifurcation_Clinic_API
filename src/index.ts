@@ -30,6 +30,8 @@ app.use((req: Request, res: Response, next: NextFunction) => {
   next();
 });
 
+app.use('/api/upload', uploadRouter);
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cors({ origin: true, credentials: true }));
@@ -52,7 +54,6 @@ app.use("/api/video", videoRoutes);
 app.use("/api/agoravideo", agoraVideoRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/report', reportRoutes);
-app.use('/api/upload', uploadRouter);
 app.use((err: any, req: Request, res: Response, next: NextFunction) => {
   console.error('Unhandled Error:', err);
   res.status(500).json({ error: 'Internal Server Error', details: err.message });

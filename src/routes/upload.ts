@@ -64,7 +64,7 @@ router.post('/ecg-report', authenticate, upload.single('file'), async (req: any,
     const timestamp = Date.now();
 
     // 3. Build a unique public_id
-    const publicId = `ecg_reports/${safeName}_${timestamp}_${safePhone}`;
+    const publicId = `ecg_reports/${safeName}_${timestamp}_${safePhone}.pdf`;
 
     // 4. Upload to Cloudinary with this public_id
     const result = await new Promise<any>((resolve, reject) => {

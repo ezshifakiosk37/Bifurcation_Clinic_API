@@ -112,6 +112,7 @@ export const rapid_testing = pgTable("rapid_testing", {
   id: uuid("id").primaryKey().defaultRandom(),
   bloodSugar: text("blood_sugar").default("Not Performed"),
   ecg: text("ecg").default("Not Performed"),
+  ecgLink: text("ecgLink").default("Not Performed"),
   hiv: text("hiv").default("Not Performed"),
   hepatitis: text("hepatitis").default("Not Performed"),
   hbsag: text("hbsag").default("Not Performed"),

@@ -341,6 +341,7 @@ router.post('/rapid-testing/save', authenticate, async (req, res) => {
           ? `${rapidData.bloodSugar.value} (${rapidData.bloodSugar.type})`
           : 'Not Performed',
         ecg: rapidData.tests?.find((t: any) => t.id === 'ecg')?.result ?? 'Not Performed',
+        ecgLink: rapidData.ecgLink ?? 'Not Performed',
         hiv: rapidData.tests?.find((t: any) => t.id === 'hiv')?.result ?? 'Not Performed',
         hepatitis: rapidData.tests?.find((t: any) => t.id === 'hepatitis')?.result ?? 'Not Performed',
         hbsag: rapidData.tests?.find((t: any) => t.id === 'hbsag')?.result ?? 'Not Performed',
@@ -364,6 +365,7 @@ router.post('/rapid-testing/save', authenticate, async (req, res) => {
         ? `${rapidData.bloodSugar.value} (${rapidData.bloodSugar.type})`
         : 'Not Performed',
       ecg: rapidData.tests?.find((t: any) => t.id === 'ecg')?.result ?? 'Not Performed',
+      ecgLink: rapidData.ecgLink ?? 'Not Performed',
       hiv: rapidData.tests?.find((t: any) => t.id === 'hiv')?.result ?? 'Not Performed',
       hepatitis: rapidData.tests?.find((t: any) => t.id === 'hepatitis')?.result ?? 'Not Performed',
       hbsag: rapidData.tests?.find((t: any) => t.id === 'hbsag')?.result ?? 'Not Performed',
@@ -401,6 +403,7 @@ router.patch('/rapid-testing/update/:id', authenticate, async (req, res) => {
         ? `${rapidData.bloodSugar.value} (${rapidData.bloodSugar.type})`
         : 'Not Performed',
       ecg: rapidData.tests?.find((t: any) => t.id === 'ecg')?.result ?? 'Not Performed',
+      ecgLink: rapidData.ecgLink ?? 'Not Performed',
       hiv: rapidData.tests?.find((t: any) => t.id === 'hiv')?.result ?? 'Not Performed',
       hepatitis: rapidData.tests?.find((t: any) => t.id === 'hepatitis')?.result ?? 'Not Performed',
       hbsag: rapidData.tests?.find((t: any) => t.id === 'hbsag')?.result ?? 'Not Performed',
